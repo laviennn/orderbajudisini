@@ -1,0 +1,77 @@
+import { sql } from "drizzle-orm";
+import {
+  pgTable,
+  text,
+  uuid,
+  integer,
+  boolean,
+  check,
+  index,
+} from "drizzle-orm/pg-core";
+import { id, at, createdAt, updatedAt } from "./shared";
+import { users } from "./identity";
+export const banners = pgTable(
+  "banners",
+  {
+    id: id(),
+    internalName: text("internal_name").notNull(),
+    headline: text("headline"),
+    body: text("body"),
+    imageObjectKey: text("image_object_key"),
+    mobileImageObjectKey: text("mobile_image_object_key"),
+    ctaLabel: text("cta_label"),
+    ctaUrl: text("cta_url"),
+    active: boolean("active").notNull().default(false),
+    startsAt: at("starts_at"),
+    endsAt: at("ends_at"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check(
+      "banner_schedule_valid",
+      sql`${t.endsAt} is null or ${t.startsAt} is null or ${t.endsAt} > ${t.startsAt}`,
+    ),
+    index("banner_active_sort_idx").on(t.active, t.sortOrder),
+  ],
+);
+export const seoSettings = pgTable(
+  "seo_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    siteTitle: text("site_title").notNull(),
+    titleTemplate: text("title_template").notNull(),
+    defaultDescription: text("default_description").notNull(),
+    defaultOgImage: text("default_og_image"),
+    homepageTitle: text("homepage_title"),
+    homepageDescription: text("homepage_description"),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("seo_singleton", sql`${t.id} = 1`)],
+);
+export const storeSettings = pgTable(
+  "store_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    storeName: text("store_name").notNull(),
+    whatsappNumber: text("whatsapp_number"),
+    supportEmail: text("support_email"),
+    displayAddress: text("display_address"),
+    reservationMinutes: integer("reservation_minutes"),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("store_singleton", sql`${t.id} = 1`),
+    check(
+      "store_reservation_minutes_valid",
+      sql`${t.reservationMinutes} is null or ${t.reservationMinutes} between 1 and 10080`,
+    ),
+  ],
+);
