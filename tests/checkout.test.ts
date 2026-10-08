@@ -5,7 +5,9 @@ vi.mock("@/server/auth/authorize", () => ({
 }));
 
 vi.mock("@/server/env", () => ({
-  getEnvironment: vi.fn(() => ({ AUTH_SECRET: "test-secret-for-ticket-sealing" })),
+  getEnvironment: vi.fn(() => ({
+    AUTH_SECRET: "test-secret-for-ticket-sealing",
+  })),
 }));
 import { normalizePhone } from "../src/server/services/checkout";
 import { AppError } from "../src/lib/errors";
@@ -30,7 +32,7 @@ describe("Checkout Utils", () => {
     it("seals and opens a valid ticket securely", async () => {
       const { seal, open } = await import("../src/server/services/checkout");
       process.env.AUTH_SECRET = "test-secret-for-ticket-sealing";
-      
+
       const ticket = {
         customerId: "cust-1",
         addressId: "addr-1",
@@ -45,7 +47,7 @@ describe("Checkout Utils", () => {
 
       const sealed = seal(ticket);
       expect(typeof sealed).toBe("string");
-      
+
       const opened = open(sealed);
       expect(opened).toEqual(ticket);
     });
@@ -53,7 +55,7 @@ describe("Checkout Utils", () => {
     it("throws INVALID_SHIPPING_SELECTION on tampered ticket", async () => {
       const { seal, open } = await import("../src/server/services/checkout");
       process.env.AUTH_SECRET = "test-secret-for-ticket-sealing";
-      
+
       const ticket = {
         customerId: "cust-1",
         addressId: "addr-1",
@@ -66,15 +68,18 @@ describe("Checkout Utils", () => {
       };
 
       const sealed = seal(ticket);
-      const tampered = sealed.substring(0, 20) + (sealed[20] === "a" ? "b" : "a") + sealed.substring(21);
-      
+      const tampered =
+        sealed.substring(0, 20) +
+        (sealed[20] === "a" ? "b" : "a") +
+        sealed.substring(21);
+
       expect(() => open(tampered)).toThrow(AppError);
     });
 
     it("throws on expired ticket", async () => {
       const { seal, open } = await import("../src/server/services/checkout");
       process.env.AUTH_SECRET = "test-secret-for-ticket-sealing";
-      
+
       const ticket = {
         customerId: "cust-1",
         addressId: "addr-1",
@@ -87,7 +92,7 @@ describe("Checkout Utils", () => {
       };
 
       const sealed = seal(ticket);
-      
+
       expect(() => open(sealed)).toThrow(AppError);
     });
   });

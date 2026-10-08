@@ -14,7 +14,14 @@ export async function GET(
     return NextResponse.redirect(url);
   } catch (error) {
     const apiError = toApiError(error);
-    const status = apiError.code === "UNAUTHENTICATED" ? 401 : apiError.code === "FORBIDDEN" ? 403 : apiError.code === "NOT_FOUND" ? 404 : 500;
+    const status =
+      apiError.code === "UNAUTHENTICATED"
+        ? 401
+        : apiError.code === "FORBIDDEN"
+          ? 403
+          : apiError.code === "NOT_FOUND"
+            ? 404
+            : 500;
     return NextResponse.json(apiError, { status });
   }
 }

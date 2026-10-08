@@ -36,7 +36,7 @@ export default async function AdminWorkspace({
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Menu administrasi">
           <Link href="/admin">Dashboard</Link>
-          
+
           <div className="nav-group">Katalog</div>
           {hasPermission(actor, "products.read") && (
             <Link href="/admin/products">Produk</Link>
@@ -47,7 +47,7 @@ export default async function AdminWorkspace({
           {hasPermission(actor, "reviews.read") && (
             <Link href="/admin/reviews">Ulasan</Link>
           )}
-          
+
           <div className="nav-group">Pesanan</div>
           {hasPermission(actor, "orders.read") && (
             <Link href="/admin/orders">Semua Pesanan</Link>
@@ -58,7 +58,7 @@ export default async function AdminWorkspace({
           {hasPermission(actor, "shipments.read") && (
             <Link href="/admin/shipments">Pengiriman</Link>
           )}
-          
+
           <div className="nav-group">Konten & Pemasaran</div>
           {hasPermission(actor, "content.read") && (
             <Link href="/admin/banners">Banner</Link>
@@ -72,7 +72,7 @@ export default async function AdminWorkspace({
           {hasPermission(actor, "seo.read") && (
             <Link href="/admin/seo">Pengaturan SEO</Link>
           )}
-          
+
           <div className="nav-group">Pengaturan</div>
           {hasPermission(actor, "settings.read") && (
             <>

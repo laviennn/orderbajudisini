@@ -4,12 +4,16 @@ import fs from "node:fs/promises";
 import os from "node:os";
 
 test.describe("Payment Proof Integration", () => {
-  test("allows user to upload payment proof after checkout", async ({ page }) => {
+  test("allows user to upload payment proof after checkout", async ({
+    page,
+  }) => {
     // 1. Create an order via checkout
     await page.goto("/products/test-kemeja-24");
-    
+
     await page.getByRole("button", { name: "Tambah ke keranjang" }).click();
-    await expect(page.getByRole("link", { name: "Lihat keranjang" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Lihat keranjang" }),
+    ).toBeVisible();
 
     await page.goto("/checkout");
     await expect(page.getByRole("heading", { name: "Checkout" })).toBeVisible();
@@ -24,8 +28,10 @@ test.describe("Payment Proof Integration", () => {
     await page.getByLabel("Kode Pos").fill("40171");
 
     await page.getByRole("button", { name: "Pilih Pengiriman" }).click();
-    await expect(page.getByRole("heading", { name: "Pilih Layanan Pengiriman" })).toBeVisible({ timeout: 10000 });
-    
+    await expect(
+      page.getByRole("heading", { name: "Pilih Layanan Pengiriman" }),
+    ).toBeVisible({ timeout: 10000 });
+
     await page.getByRole("radio").first().check();
     await page.getByRole("button", { name: "Buat Pesanan" }).click();
 
@@ -37,7 +43,7 @@ test.describe("Payment Proof Integration", () => {
     fakeImageBuffer[0] = 0xff;
     fakeImageBuffer[1] = 0xd8;
     fakeImageBuffer[2] = 0xff;
-    
+
     const tmpFile = path.join(os.tmpdir(), "test-proof.jpg");
     await fs.writeFile(tmpFile, fakeImageBuffer);
 
@@ -46,16 +52,24 @@ test.describe("Payment Proof Integration", () => {
     await fileInput.setInputFiles(tmpFile);
 
     // Wait for the UI to recognize it
-    await expect(page.getByText(/File terpilih:.*test-proof.jpg/)).toBeVisible();
+    await expect(
+      page.getByText(/File terpilih:.*test-proof.jpg/),
+    ).toBeVisible();
 
     // Click upload
     await page.getByRole("button", { name: "Unggah Bukti Transfer" }).click();
 
     // 3. Verify status changed to submitted
-    await expect(page.getByText(/Bukti pembayaran telah diterima dan sedang menunggu verifikasi/i)).toBeVisible({ timeout: 10000 });
-    
+    await expect(
+      page.getByText(
+        /Bukti pembayaran telah diterima dan sedang menunggu verifikasi/i,
+      ),
+    ).toBeVisible({ timeout: 10000 });
+
     // Check WhatsApp confirmation button
-    const waButton = page.getByRole("button", { name: "Konfirmasi via WhatsApp" });
+    const waButton = page.getByRole("button", {
+      name: "Konfirmasi via WhatsApp",
+    });
     await expect(waButton).toBeVisible();
 
     // Intercept WhatsApp API request to mock it
@@ -63,7 +77,9 @@ test.describe("Payment Proof Integration", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ url: "https://wa.me/6281234567890?text=Mock%20message" })
+        body: JSON.stringify({
+          url: "https://wa.me/6281234567890?text=Mock%20message",
+        }),
       });
     });
 

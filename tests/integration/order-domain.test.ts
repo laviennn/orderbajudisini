@@ -33,14 +33,12 @@ beforeAll(async () => {
   database = await startTestDatabase();
   vi.stubEnv("SHIPPING_PROVIDER", "TEST");
   vi.stubEnv("AUTH_SECRET", "TEST-only-order-domain-secret-".repeat(2));
-  await database.db
-    .insert(s.storeSettings)
-    .values({
-      id: 1,
-      storeName: "TEST ONLY",
-      shippingOrigin: testOrigin,
-      reservationMinutes: 30,
-    });
+  await database.db.insert(s.storeSettings).values({
+    id: 1,
+    storeName: "TEST ONLY",
+    shippingOrigin: testOrigin,
+    reservationMinutes: 30,
+  });
 });
 afterAll(async () => {
   await database?.stop();

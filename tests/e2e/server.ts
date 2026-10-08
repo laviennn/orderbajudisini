@@ -63,7 +63,10 @@ await database.db.insert(storeSettings).values({
 const testObjects = new Map<string, { body: Buffer; mime: string }>();
 const storage = createServer(async (request, response) => {
   response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS");
+  response.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, PUT, DELETE, OPTIONS",
+  );
   response.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (request.method === "OPTIONS") {

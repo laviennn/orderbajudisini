@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { authorizeQrisUploadAction, saveQrisSettingsAction } from "@/app/admin/(workspace)/payment-methods/actions";
+import {
+  authorizeQrisUploadAction,
+  saveQrisSettingsAction,
+} from "@/app/admin/(workspace)/payment-methods/actions";
 
 interface QrisEditorProps {
   initialSettings: {
@@ -13,12 +16,23 @@ interface QrisEditorProps {
   initialImageUrl: string | null;
 }
 
-export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps) {
-  const [merchantName, setMerchantName] = useState(initialSettings?.merchantName || "");
-  const [instructions, setInstructions] = useState(initialSettings?.instructions || "");
+export function QrisEditor({
+  initialSettings,
+  initialImageUrl,
+}: QrisEditorProps) {
+  const [merchantName, setMerchantName] = useState(
+    initialSettings?.merchantName || "",
+  );
+  const [instructions, setInstructions] = useState(
+    initialSettings?.instructions || "",
+  );
   const [active, setActive] = useState(initialSettings?.active || false);
-  const [imageKey, setImageKey] = useState<string | null>(initialSettings?.imageObjectKey || null);
-  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl || null);
+  const [imageKey, setImageKey] = useState<string | null>(
+    initialSettings?.imageObjectKey || null,
+  );
+  const [imageUrl, setImageUrl] = useState<string | null>(
+    initialImageUrl || null,
+  );
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -89,11 +103,17 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
       });
 
       setImageKey(signed.key);
-      setSuccess("Gambar QRIS berhasil diunggah. Klik Simpan QRIS untuk menyimpan.");
+      setSuccess(
+        "Gambar QRIS berhasil diunggah. Klik Simpan QRIS untuk menyimpan.",
+      );
     } catch (err: unknown) {
       setImageKey(initialSettings?.imageObjectKey || null);
       setImageUrl(initialImageUrl || null);
-      setError(err instanceof Error ? err.message : "Terjadi kesalahan saat mengunggah gambar.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan saat mengunggah gambar.",
+      );
     } finally {
       setUploading(false);
       setUploadProgress(null);
@@ -106,7 +126,9 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
     setImageUrl(null);
     setActive(false);
     setError(null);
-    setSuccess("Gambar QRIS telah dilepas. Simpan perubahan untuk memperbarui.");
+    setSuccess(
+      "Gambar QRIS telah dilepas. Simpan perubahan untuk memperbarui.",
+    );
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -129,7 +151,9 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
       });
       setSuccess("Pengaturan QRIS berhasil disimpan.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Gagal menyimpan pengaturan QRIS.");
+      setError(
+        err instanceof Error ? err.message : "Gagal menyimpan pengaturan QRIS.",
+      );
     } finally {
       setSaving(false);
     }
@@ -142,12 +166,19 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
           <legend>Pengaturan QRIS Statis</legend>
 
           {error && (
-            <p role="alert" className="admin-error" style={{ marginBottom: "1rem" }}>
+            <p
+              role="alert"
+              className="admin-error"
+              style={{ marginBottom: "1rem" }}
+            >
               {error}
             </p>
           )}
           {success && (
-            <p role="status" style={{ color: "var(--success)", marginBottom: "1rem" }}>
+            <p
+              role="status"
+              style={{ color: "var(--success)", marginBottom: "1rem" }}
+            >
               {success}
             </p>
           )}
@@ -180,7 +211,13 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
 
           {/* QRIS Image Management Area */}
           <div style={{ marginBottom: "1.5rem" }}>
-            <span style={{ display: "block", fontWeight: 500, marginBottom: "0.5rem" }}>
+            <span
+              style={{
+                display: "block",
+                fontWeight: 500,
+                marginBottom: "0.5rem",
+              }}
+            >
               Gambar QRIS
             </span>
 
@@ -214,11 +251,21 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
                   <img
                     src={imageUrl}
                     alt="Preview QRIS"
-                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      objectFit: "contain",
+                    }}
                   />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.75rem",
+                  }}
+                >
                   <p className="small-note" style={{ margin: 0 }}>
                     {uploading
                       ? `Mengunggah... ${uploadProgress !== null ? `${uploadProgress}%` : ""}`
@@ -286,7 +333,9 @@ export function QrisEditor({ initialSettings, initialImageUrl }: QrisEditorProps
               checked={active}
               onChange={(e) => {
                 if (e.target.checked && !imageKey) {
-                  setError("Unggah gambar QRIS terlebih dahulu sebelum mengaktifkan QRIS.");
+                  setError(
+                    "Unggah gambar QRIS terlebih dahulu sebelum mengaktifkan QRIS.",
+                  );
                   return;
                 }
                 setError(null);

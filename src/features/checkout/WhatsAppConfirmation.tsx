@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 
-
 export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,20 +31,41 @@ export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
   };
 
   return (
-    <div style={{ marginTop: "1.5rem", padding: "1.5rem", border: "1px dashed var(--border)", borderRadius: "var(--radius-control)", backgroundColor: "var(--surface-background)" }}>
+    <div
+      style={{
+        marginTop: "1.5rem",
+        padding: "1.5rem",
+        border: "1px dashed var(--border)",
+        borderRadius: "var(--radius-control)",
+        backgroundColor: "var(--surface-background)",
+      }}
+    >
       <h3 style={{ marginBottom: "0.5rem" }}>Konfirmasi via WhatsApp</h3>
-      <p style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "var(--muted-foreground)" }}>
-        Kirim detail pesanan dan tautan bukti pembayaran ke WhatsApp toko untuk membantu proses pengecekan.
+      <p
+        style={{
+          marginBottom: "1rem",
+          fontSize: "0.875rem",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        Kirim detail pesanan dan tautan bukti pembayaran ke WhatsApp toko untuk
+        membantu proses pengecekan.
       </p>
       {error && (
-        <div style={{ color: "var(--error)", marginBottom: "1rem", fontSize: "0.875rem" }}>
+        <div
+          style={{
+            color: "var(--error)",
+            marginBottom: "1rem",
+            fontSize: "0.875rem",
+          }}
+        >
           {error}
         </div>
       )}
-      <button 
-        type="button" 
-        className="button button-primary" 
-        style={{ width: "100%" }} 
+      <button
+        type="button"
+        className="button button-primary"
+        style={{ width: "100%" }}
         onClick={handleConfirm}
         disabled={loading}
       >

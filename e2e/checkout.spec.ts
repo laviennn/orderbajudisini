@@ -2,13 +2,13 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Checkout Flow", () => {
   test("processes happy path checkout", async ({ page }) => {
-    page.on("console", msg => console.log("BROWSER:", msg.text()));
-    page.on("response", async response => {
+    page.on("console", (msg) => console.log("BROWSER:", msg.text()));
+    page.on("response", async (response) => {
       if (response.url().includes("/api/checkout")) {
         console.log("API RESPONSE:", response.status(), await response.text());
       }
     });
-    
+
     // 1. Setup cart via localStorage
     await page.goto("/");
     await page.evaluate(() => {
@@ -18,9 +18,11 @@ test.describe("Checkout Flow", () => {
     });
     await page.goto("/products/test-kemeja-26");
     await page.waitForURL(/\/products\/.+/);
-    
+
     await page.getByRole("button", { name: "Tambah ke keranjang" }).click();
-    await expect(page.getByRole("link", { name: "Lihat keranjang" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Lihat keranjang" }),
+    ).toBeVisible();
 
     // 2. Go to checkout
     await page.goto("/checkout");
@@ -38,23 +40,33 @@ test.describe("Checkout Flow", () => {
 
     // 4. Request shipping quotes
     await page.getByRole("button", { name: "Pilih Pengiriman" }).click();
-    
-    // 5. Select shipping and Place Order
-    await expect(page.getByRole("heading", { name: "Pilih Layanan Pengiriman" })).toBeVisible({ timeout: 10000 });
 
-    await expect(page.getByRole("heading", { name: "Pilih Layanan Pengiriman" })).toBeVisible();
+    // 5. Select shipping and Place Order
+    await expect(
+      page.getByRole("heading", { name: "Pilih Layanan Pengiriman" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await expect(
+      page.getByRole("heading", { name: "Pilih Layanan Pengiriman" }),
+    ).toBeVisible();
     await page.getByRole("radio").first().check();
     await page.getByRole("button", { name: "Buat Pesanan" }).click();
 
     // 6. Order Confirmation
     await page.waitForURL(/\/order\/.+/);
-    await expect(page.getByRole("heading", { name: "Pesanan Diterima" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Status Pembayaran" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Pesanan Diterima" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Status Pembayaran" }),
+    ).toBeVisible();
     await expect(page.getByText(/Menunggu Pembayaran/i)).toBeVisible();
   });
 
   test("prevents checkout without products", async ({ page }) => {
     await page.goto("/checkout");
-    await expect(page.getByRole("heading", { name: "Keranjang kosong" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Keranjang kosong" }),
+    ).toBeVisible();
   });
 });

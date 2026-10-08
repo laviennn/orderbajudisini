@@ -2,7 +2,13 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { AppError } from "@/lib/errors";
 import { getDatabase } from "@/server/db";
-import { orders, orderItems, payments, storeSettings, customers } from "@/server/db/schema";
+import {
+  orders,
+  orderItems,
+  payments,
+  storeSettings,
+  customers,
+} from "@/server/db/schema";
 import { getEnvironment } from "@/server/env";
 import { recoverOrderToken } from "./order-tokens";
 import { hashToken } from "./orders";
@@ -59,12 +65,21 @@ export async function generateWhatsAppConfirmationUrl(publicToken: string) {
     .from(payments)
     .where(eq(payments.orderId, order.id));
 
-  if (!payment || payment.status !== "submitted" || !payment.proofObjectKey || !payment.proofTokenCiphertext) {
-    throw new AppError("VALIDATION_ERROR", { order: ["Pesanan ini belum memiliki bukti pembayaran yang aktif."] });
+  if (
+    !payment ||
+    payment.status !== "submitted" ||
+    !payment.proofObjectKey ||
+    !payment.proofTokenCiphertext
+  ) {
+    throw new AppError("VALIDATION_ERROR", {
+      order: ["Pesanan ini belum memiliki bukti pembayaran yang aktif."],
+    });
   }
-  
+
   if (order.status !== "payment_submitted") {
-    throw new AppError("VALIDATION_ERROR", { order: ["Pesanan tidak dalam status menunggu verifikasi."] });
+    throw new AppError("VALIDATION_ERROR", {
+      order: ["Pesanan tidak dalam status menunggu verifikasi."],
+    });
   }
 
   const [settings] = await db
@@ -73,7 +88,9 @@ export async function generateWhatsAppConfirmationUrl(publicToken: string) {
     .where(eq(storeSettings.id, 1));
 
   if (!settings?.whatsappNumber) {
-    throw new AppError("VALIDATION_ERROR", { store: ["Nomor WhatsApp toko belum dikonfigurasi."] });
+    throw new AppError("VALIDATION_ERROR", {
+      store: ["Nomor WhatsApp toko belum dikonfigurasi."],
+    });
   }
 
   const items = await db
@@ -90,7 +107,7 @@ export async function generateWhatsAppConfirmationUrl(publicToken: string) {
   const proofToken = recoverOrderToken(
     payment.proofTokenCiphertext,
     env.AUTH_SECRET!,
-    payment.id
+    payment.id,
   );
 
   const proofUrl = `${env.APP_URL}/proof/${proofToken}`;
@@ -101,7 +118,9 @@ export async function generateWhatsAppConfirmationUrl(publicToken: string) {
     order.address.city,
     order.address.province,
     order.address.postalCode,
-  ].filter(Boolean).join(", ");
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   let itemsText = "";
   items.forEach((item, index) => {
@@ -109,9 +128,10 @@ export async function generateWhatsAppConfirmationUrl(publicToken: string) {
     itemsText += `${index + 1}. ${item.nameSnapshot}${size} — Rp${formatMoney(item.priceSnapshot || 0)}\n`;
   });
 
-  const discountLine = order.discountTotal && order.discountTotal > 0 
-    ? `\nDiskon Promo: Rp${formatMoney(order.discountTotal)}` 
-    : "";
+  const discountLine =
+    order.discountTotal && order.discountTotal > 0
+      ? `\nDiskon Promo: Rp${formatMoney(order.discountTotal)}`
+      : "";
 
   const message = `Halo Admin, saya ingin mengonfirmasi pembayaran pesanan saya.
 

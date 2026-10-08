@@ -3,13 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function PaymentActions({ paymentId, orderId }: { paymentId: string, orderId: string }) {
+export default function PaymentActions({
+  paymentId,
+  orderId,
+}: {
+  paymentId: string;
+  orderId: string;
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleVerify() {
-    if (!confirm("Apakah Anda yakin ingin memverifikasi pembayaran ini?")) return;
+    if (!confirm("Apakah Anda yakin ingin memverifikasi pembayaran ini?"))
+      return;
     setIsSubmitting(true);
     setError(null);
     try {
@@ -20,7 +27,9 @@ export default function PaymentActions({ paymentId, orderId }: { paymentId: stri
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error?.message || "Gagal memverifikasi pembayaran");
+        throw new Error(
+          data.error?.message || "Gagal memverifikasi pembayaran",
+        );
       }
       router.refresh();
     } catch (err) {
@@ -54,19 +63,26 @@ export default function PaymentActions({ paymentId, orderId }: { paymentId: stri
   }
 
   return (
-    <div className="payment-actions" style={{ display: 'flex', gap: '1rem', flexDirection: 'column' }}>
-      {error && <div className="error-message" style={{ color: 'var(--error)' }}>{error}</div>}
-      <div style={{ display: 'flex', gap: '1rem' }}>
-        <button 
-          className="button button-primary" 
-          onClick={handleVerify} 
+    <div
+      className="payment-actions"
+      style={{ display: "flex", gap: "1rem", flexDirection: "column" }}
+    >
+      {error && (
+        <div className="error-message" style={{ color: "var(--error)" }}>
+          {error}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <button
+          className="button button-primary"
+          onClick={handleVerify}
           disabled={isSubmitting}
         >
           {isSubmitting ? "Memproses..." : "Verifikasi Pembayaran"}
         </button>
-        <button 
-          className="button button-secondary" 
-          onClick={handleReject} 
+        <button
+          className="button button-secondary"
+          onClick={handleReject}
           disabled={isSubmitting}
         >
           {isSubmitting ? "Memproses..." : "Tolak Pembayaran"}

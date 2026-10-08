@@ -84,6 +84,7 @@ export function useCart() {
     add: (id: string) => setCart([...ids, id]),
     remove: (id: string) => setCart(ids.filter((p) => p !== id)),
     clear: () => setCart([]),
-    removeOrdered: (ordered: readonly string[]) => setCart(ids.filter(id => !ordered.includes(id))),
+    removeOrdered: (ordered: readonly string[]) =>
+      setCart(ids.filter((id) => !ordered.includes(id))),
   };
 }

@@ -3,7 +3,12 @@ import { AppError } from "@/lib/errors";
 
 export const uploadSchema = z
   .object({
-    purpose: z.enum(["product", "payment-proof", "product-source", "site-media"]),
+    purpose: z.enum([
+      "product",
+      "payment-proof",
+      "product-source",
+      "site-media",
+    ]),
     mime: z.enum(["image/jpeg", "image/png", "image/webp"]),
     bytes: z
       .number()

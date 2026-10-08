@@ -1,11 +1,11 @@
 import "server-only";
 import { desc, eq, sql } from "drizzle-orm";
-import { 
-  orders, 
-  orderItems, 
-  shipments, 
-  orderStatusHistory, 
-  auditLogs 
+import {
+  orders,
+  orderItems,
+  shipments,
+  orderStatusHistory,
+  auditLogs,
 } from "@/server/db/schema";
 import { withStaff } from "@/server/auth/authorize";
 import { AppError } from "@/lib/errors";
@@ -20,13 +20,13 @@ export async function getAdminOrders(options: GetOrdersOptions = {}) {
   return withStaff("orders.read", async (tx) => {
     const page = Math.max(1, options.page || 1);
     const pageSize = Math.min(100, Math.max(1, options.pageSize || 20));
-    
+
     let whereClause = undefined;
     if (options.status) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       whereClause = eq(orders.status, options.status as any);
     }
-    
+
     const items = await tx
       .select({
         id: orders.id,
@@ -44,7 +44,10 @@ export async function getAdminOrders(options: GetOrdersOptions = {}) {
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 
-    const countQuery = tx.select({ count: sql<number>`count(*)` }).from(orders).where(whereClause);
+    const countQuery = tx
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .where(whereClause);
     const countResult = await countQuery;
     const count = countResult[0]?.count ?? 0;
 
@@ -64,7 +67,7 @@ export async function getAdminOrderDetail(orderId: string) {
       .from(orders)
       .where(eq(orders.id, orderId))
       .limit(1);
-    
+
     if (!order) throw new AppError("NOT_FOUND");
 
     const items = await tx
@@ -94,7 +97,7 @@ export async function processOrder(orderId: string) {
       .where(eq(orders.id, orderId))
       .for("update")
       .limit(1);
-      
+
     if (!order) throw new AppError("NOT_FOUND");
     if (order.status !== "payment_verified") {
       throw new AppError("INVALID_ORDER_TRANSITION");
@@ -149,7 +152,7 @@ export async function shipOrder(orderId: string, data: ShipOrderData) {
       .where(eq(orders.id, orderId))
       .for("update")
       .limit(1);
-      
+
     if (!order) throw new AppError("NOT_FOUND");
     if (order.status !== "processing") {
       throw new AppError("INVALID_ORDER_TRANSITION");
@@ -205,8 +208,8 @@ export async function shipOrder(orderId: string, data: ShipOrderData) {
       action: "order.ship",
       entityType: "order",
       entityId: orderId,
-      metadata: { 
-        from: "processing", 
+      metadata: {
+        from: "processing",
         to: "shipped",
         trackingNumber: data.trackingNumber,
         courier: data.courier,
@@ -226,7 +229,7 @@ export async function completeOrder(orderId: string) {
       .where(eq(orders.id, orderId))
       .for("update")
       .limit(1);
-      
+
     if (!order) throw new AppError("NOT_FOUND");
     if (order.status !== "shipped") {
       throw new AppError("INVALID_ORDER_TRANSITION");
