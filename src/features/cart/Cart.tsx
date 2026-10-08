@@ -171,11 +171,9 @@ export function Cart() {
               <p>Tidak ada produk tersedia untuk dihitung.</p>
             )}
             <p className="small-note">
-              Belum termasuk ongkos kirim. Checkout belum tersedia.
+              Belum termasuk ongkos kirim.
             </p>
-            <button className="primary-action purchase-action" disabled>
-              Lanjut ke checkout — belum tersedia
-            </button>
+            {data.items.every(item => item.available) && data.pricing ? <Link className="primary-action purchase-action" href="/checkout">Lanjut ke checkout</Link> : <p>Hapus produk yang tidak tersedia sebelum checkout.</p>}
             <Link className="text-link" href="/products">
               Lanjut melihat produk
             </Link>

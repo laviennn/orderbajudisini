@@ -1,6 +1,7 @@
 import "server-only";
 import { eq, desc, asc, sql } from "drizzle-orm";
 import { z } from "zod";
+import { bundleTerms } from "@/lib/domain/pricing";
 import { AppError } from "@/lib/errors";
 import { withStaff } from "@/server/auth/authorize";
 import { promotions, promotionProducts, products } from "@/server/db/schema";
@@ -27,7 +28,14 @@ export const promotionInput = z
     (v) =>
       !v.active || (v.allocationStrategy !== null && v.pricePolicy !== null),
   )
-  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt);
+  .refine((v) => !v.startsAt || !v.endsAt || v.endsAt > v.startsAt)
+  .refine(
+    (v) =>
+      !v.active ||
+      (v.requiredQuantity === bundleTerms.requiredQuantity &&
+        v.bundlePrice === bundleTerms.bundlePrice &&
+        v.pricePolicy === bundleTerms.pricePolicy),
+  );
 export async function listPromotions() {
   return withStaff("promotions.read", (tx) =>
     tx

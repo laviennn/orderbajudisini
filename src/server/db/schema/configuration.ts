@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   pgTable,
+  jsonb,
   text,
   uuid,
   integer,
@@ -9,6 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { id, at, createdAt, updatedAt } from "./shared";
+import type { ShippingDestination } from "@/server/shipping/contract";
 import { users } from "./identity";
 export const banners = pgTable(
   "banners",
@@ -61,6 +63,7 @@ export const storeSettings = pgTable(
     whatsappNumber: text("whatsapp_number"),
     supportEmail: text("support_email"),
     displayAddress: text("display_address"),
+    shippingOrigin: jsonb("shipping_origin").$type<ShippingDestination>(),
     reservationMinutes: integer("reservation_minutes"),
     updatedBy: uuid("updated_by").references(() => users.id, {
       onDelete: "restrict",

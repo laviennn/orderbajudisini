@@ -1,4 +1,12 @@
 export type ErrorCode =
+  | "INVALID_DESTINATION"
+  | "SHIPPING_NOT_CONFIGURED"
+  | "SHIPPING_PROVIDER_UNAVAILABLE"
+  | "SHIPPING_NO_SERVICES"
+  | "SHIPPING_QUOTE_EXPIRED"
+  | "INVALID_SHIPPING_SELECTION"
+  | "SHIPPING_WEIGHT_INVALID"
+  | "SHIPPING_ORIGIN_INVALID"
   | "NOT_FOUND"
   | "CONFLICT"
   | "PRODUCT_UNAVAILABLE"
@@ -25,6 +33,18 @@ export type ApiError = {
 };
 
 const messages: Record<ErrorCode, string> = {
+  INVALID_DESTINATION: "Tujuan pengiriman tidak valid.",
+  SHIPPING_NOT_CONFIGURED: "Layanan ongkir belum dikonfigurasi.",
+  SHIPPING_PROVIDER_UNAVAILABLE:
+    "Layanan ongkir sedang tidak tersedia. Coba lagi nanti.",
+  SHIPPING_NO_SERVICES: "Tidak ada layanan pengiriman untuk tujuan ini.",
+  SHIPPING_QUOTE_EXPIRED: "Pilihan ongkir kedaluwarsa. Minta ongkir terbaru.",
+  INVALID_SHIPPING_SELECTION:
+    "Pilihan pengiriman tidak valid. Minta ongkir terbaru.",
+  SHIPPING_WEIGHT_INVALID: "Berat produk belum lengkap atau tidak valid.",
+  SHIPPING_ORIGIN_INVALID:
+    "Asal pengiriman toko belum dikonfigurasi dengan benar.",
+
   NOT_FOUND: "Data tidak ditemukan.",
   CONFLICT:
     "Data sudah berubah atau sudah digunakan. Muat ulang dan coba lagi.",

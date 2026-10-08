@@ -28,6 +28,7 @@ const adapter: StorageAdapter = {
     return { bytes: value.body.length, mime: value.mime };
   },
   readProductSource: async (key) => objects.get(key)!.body,
+  readPaymentProof: async (key) => objects.get(key)!.body,
   writeProductVariant: async (key, body) => {
     if (failWrites) throw new Error("TEST provider write failure");
     objects.set(key, { body, mime: "image/webp" });

@@ -1,5 +1,10 @@
 import { AppError } from "@/lib/errors";
 import { money, multiplyMoney, sumMoney } from "./money";
+export const bundleTerms = {
+  requiredQuantity: 3,
+  bundlePrice: 100000,
+  pricePolicy: "discount_only",
+} as const;
 export type PricedProduct = {
   id: string;
   price: number;
@@ -124,11 +129,10 @@ export function calculateCartPricing(
     )
       throw new AppError("PRICING_NOT_CONFIGURED");
     if (
-      !Number.isInteger(rule.requiredQuantity) ||
-      rule.requiredQuantity < 2 ||
-      rule.requiredQuantity > 100
+      rule.requiredQuantity !== bundleTerms.requiredQuantity ||
+      rule.bundlePrice !== bundleTerms.bundlePrice
     )
-      throw new AppError("VALIDATION_ERROR");
+      throw new AppError("PRICING_NOT_CONFIGURED");
     money(rule.bundlePrice);
     const eligible = units
       .filter(
@@ -154,7 +158,7 @@ export function calculateCartPricing(
       discountAmount: 0,
       surchargeAmount: 0,
       allocationStrategy: rule.allocationStrategy!,
-      pricePolicy: rule.pricePolicy!,
+      pricePolicy: bundleTerms.pricePolicy,
       allocations: [],
     };
     for (
@@ -164,15 +168,15 @@ export function calculateCartPricing(
     ) {
       const group = eligible.slice(i, i + rule.requiredQuantity);
       const original = sumMoney(group.map((u) => u.product.price));
-      if (rule.pricePolicy === "discount_only" && original <= rule.bundlePrice)
-        continue;
-      allocate(group, rule.bundlePrice);
+      // Legacy fixed_bundle configuration must never raise a customer's price.
+      const bundleTotal = Math.min(original, rule.bundlePrice);
+      allocate(group, bundleTotal);
+      // A capped group with no saving is still consumed once, but is not an
+      // applied promotion. Preserve existing consumers' advertised bundle-price semantics.
+      if (bundleTotal === original) continue;
       applied.bundleCount++;
       applied.discountAmount = money(
-        applied.discountAmount + Math.max(0, original - rule.bundlePrice),
-      );
-      applied.surchargeAmount = money(
-        applied.surchargeAmount + Math.max(0, rule.bundlePrice - original),
+        applied.discountAmount + original - bundleTotal,
       );
       for (const unit of group) {
         const existing = applied.allocations.find(

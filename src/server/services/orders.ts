@@ -8,6 +8,7 @@ import { getDatabase } from "@/server/db";
 import { databaseOperation, type Transaction } from "@/server/db/operations";
 import {
   addresses,
+  categories,
   bankAccounts,
   orders,
   orderItems,
@@ -24,6 +25,12 @@ import { getEnvironment } from "@/server/env";
 import { withStaff } from "@/server/auth/authorize";
 import { priceLockedProducts } from "./pricing";
 import { finishReservations, reserveLockedProducts } from "./inventory";
+import { createOrderToken, recoverOrderToken } from "./order-tokens";
+import { destinationSchema } from "@/server/shipping/contract";
+import {
+  shippingContextFingerprint,
+  shippingWeight,
+} from "@/server/shipping/context";
 import { writeOrderState } from "./order-state";
 export const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -42,25 +49,26 @@ export function cartFingerprint(
     ),
   );
 }
+const uuid = z.uuid().transform((value) => value.toLowerCase());
 const orderInput = z
   .object({
-    idempotencyKey: z.uuid(),
-    customerId: z.uuid(),
-    addressId: z.uuid(),
-    shippingQuoteId: z.uuid(),
-    bankAccountId: z.uuid(),
+    idempotencyKey: uuid,
+    customerId: uuid,
+    addressId: uuid,
+    shippingQuoteId: uuid,
+    bankAccountId: uuid,
+    notes: z.string().trim().max(1000).optional(),
     items: z
       .array(
         z
           .object({
-            productId: z.uuid(),
+            productId: uuid,
             quantity: z.number().int().min(1).max(100),
           })
           .strict(),
       )
       .min(1)
       .max(100),
-    notes: z.string().max(1000).optional(),
   })
   .strict()
   .refine(
@@ -78,15 +86,12 @@ async function databaseNow(tx: Transaction) {
 }
 // Internal checkout service: future HTTP entry must verify guest checkout context and rate-limit.
 // No caller may supply monetary values; a trusted persisted shipping quote is mandatory.
-export async function createReservedOrder(input: unknown) {
+export async function createReservedOrder(input: unknown, options?: {expectedMerchandiseTotal: number}) {
   return databaseOperation(async () => {
     const data = orderInput.parse(input);
     data.items.sort((a, b) => a.productId.localeCompare(b.productId));
     const secret = getEnvironment().AUTH_SECRET;
     if (!secret) throw new AppError("NOT_CONFIGURED");
-    const token = createHmac("sha256", secret)
-      .update(`order:${data.idempotencyKey}`)
-      .digest("hex");
     const requestHash = hashToken(JSON.stringify(data));
     return getDatabase().transaction(async (tx) => {
       await tx.execute(
@@ -97,10 +102,19 @@ export async function createReservedOrder(input: unknown) {
         .from(orders)
         .where(eq(orders.idempotencyKey, data.idempotencyKey));
       if (existing) {
-        if (
-          existing.requestHash !== requestHash ||
-          existing.publicTokenHash !== hashToken(token)
-        )
+        if (existing.requestHash !== requestHash)
+          throw new AppError("CONFLICT");
+        // Keep retries of pre-4A orders readable without rewriting immutable history.
+        const token = existing.publicTokenCiphertext
+          ? recoverOrderToken(
+              existing.publicTokenCiphertext,
+              secret,
+              existing.id,
+            )
+          : createHmac("sha256", secret)
+              .update(`order:${data.idempotencyKey}`)
+              .digest("hex");
+        if (existing.publicTokenHash !== hashToken(token))
           throw new AppError("CONFLICT");
         return {
           id: existing.id,
@@ -111,9 +125,13 @@ export async function createReservedOrder(input: unknown) {
       }
       await tx.execute(sql`select pg_advisory_xact_lock_shared(73102)`);
       const [settings] = await tx
-        .select({ minutes: storeSettings.reservationMinutes })
+        .select({
+          minutes: storeSettings.reservationMinutes,
+          shippingOrigin: storeSettings.shippingOrigin,
+        })
         .from(storeSettings)
-        .where(eq(storeSettings.id, 1));
+        .where(eq(storeSettings.id, 1))
+        .for("share");
       if (!settings?.minutes) throw new AppError("NOT_CONFIGURED");
       const [address] = await tx
         .select()
@@ -147,7 +165,7 @@ export async function createReservedOrder(input: unknown) {
           ),
         )
         .for("update");
-      if (!quote) throw new AppError("NOT_FOUND");
+      if (!quote) throw new AppError("INVALID_SHIPPING_SELECTION");
       const locked = await tx
         .select()
         .from(products)
@@ -161,16 +179,47 @@ export async function createReservedOrder(input: unknown) {
         .for("update");
       if (locked.length !== data.items.length)
         throw new AppError("PRODUCT_UNAVAILABLE");
+      const categoryRows = await tx
+        .select({ id: categories.id, active: categories.active })
+        .from(categories)
+        .where(
+          inArray(categories.id, [...new Set(locked.map((p) => p.categoryId))]),
+        )
+        .orderBy(asc(categories.id))
+        .for("share");
+      const activeCategories = new Set(
+        categoryRows.filter((c) => c.active).map((c) => c.id),
+      );
       const priced = locked.map((product) => {
         const quantity = data.items.find(
           (i) => i.productId === product.id,
         )!.quantity;
-        if (product.status !== "active" || product.quantity < quantity)
+        if (
+          product.status !== "active" ||
+          product.quantity < quantity ||
+          !activeCategories.has(product.categoryId)
+        )
           throw new AppError("PRODUCT_UNAVAILABLE");
         return { ...product, quantity };
       });
       const now = await databaseNow(tx);
-      if (quote.expiresAt <= now) throw new AppError("RESERVATION_EXPIRED");
+      if (quote.expiresAt <= now) throw new AppError("SHIPPING_QUOTE_EXPIRED");
+      const env = getEnvironment();
+      if (
+        env.NODE_ENV === "production" &&
+        (quote.testOnly || quote.provider.toLowerCase() === "test")
+      )
+        throw new AppError("SHIPPING_NOT_CONFIGURED");
+      const origin = destinationSchema.safeParse(settings.shippingOrigin);
+      if (!origin.success) throw new AppError("SHIPPING_ORIGIN_INVALID");
+      if (
+        !env.SHIPPING_PROVIDER ||
+        quote.provider !== env.SHIPPING_PROVIDER ||
+        quote.contextFingerprint !==
+          shippingContextFingerprint(origin.data, address)
+      )
+        throw new AppError("INVALID_SHIPPING_SELECTION");
+      shippingWeight(priced);
       if (
         quote.cartFingerprint !==
         cartFingerprint(
@@ -181,20 +230,24 @@ export async function createReservedOrder(input: unknown) {
           })),
         )
       )
-        throw new AppError("CONFLICT");
+        throw new AppError("INVALID_SHIPPING_SELECTION");
       const pricing = await priceLockedProducts(tx, priced, now);
       const due = new Date(now.getTime() + settings.minutes * 60000);
+      if (options && pricing.merchandiseTotal !== options.expectedMerchandiseTotal) throw new AppError("CONFLICT");
       const total = sumMoney([pricing.merchandiseTotal, quote.cost]);
       const id = randomUUID();
+      const { token, ciphertext } = createOrderToken(secret, id);
       const orderNumber = `ORD-${now.toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
       await tx.insert(orders).values({
         id,
         orderNumber,
         publicTokenHash: hashToken(token),
+        publicTokenCiphertext: ciphertext,
         idempotencyKey: data.idempotencyKey,
         requestHash,
         customerId: data.customerId,
         addressId: address.id,
+        notes: data.notes,
         addressSnapshot: {
           recipientName: address.recipientName,
           phone: address.phone,
@@ -217,7 +270,6 @@ export async function createReservedOrder(input: unknown) {
         shippingService: quote.service,
         shippingEtd: quote.etd,
         paymentDueAt: due,
-        notes: data.notes,
       });
       // One representative image per product; bounded query rather than a per-item query.
       const images = await tx
@@ -238,6 +290,7 @@ export async function createReservedOrder(input: unknown) {
         .orderBy(
           asc(productImages.productId),
           asc(productImages.sortOrder),
+          sql`case when ${productImages.variant} = 'card' then 0 when ${productImages.variant} = 'detail' then 1 else 2 end`,
           asc(productImages.id),
         );
       await tx.insert(orderItems).values(
@@ -251,7 +304,13 @@ export async function createReservedOrder(input: unknown) {
             slugSnapshot: product.slug,
             priceSnapshot: product.price,
             sizeSnapshot: product.sizeLabel,
-            conditionSnapshot: product.conditionNotes,
+            conditionSnapshot: [
+              product.conditionGrade,
+              product.conditionNotes,
+              product.defectNotes,
+            ]
+              .filter(Boolean)
+              .join("\n"),
             imageSnapshot:
               images.find((i) => i.productId === product.id)?.key ?? null,
             quantity: line.quantity,

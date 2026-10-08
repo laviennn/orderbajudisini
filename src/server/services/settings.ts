@@ -6,6 +6,7 @@ import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
 import { withStaff } from "@/server/auth/authorize";
 import { bankAccounts, seoSettings, storeSettings } from "@/server/db/schema";
+import { destinationSchema } from "@/server/shipping/contract";
 import { writeAudit } from "./audit";
 export const seoInput = z
   .object({
@@ -116,6 +117,7 @@ export async function setStoreSettings(input: unknown) {
           .nullable(),
         supportEmail: z.email().nullable(),
         displayAddress: z.string().max(2000).nullable(),
+        shippingOrigin: destinationSchema.nullable().optional(),
         reservationMinutes: z.number().int().min(1).max(10080).nullable(),
       })
       .strict()

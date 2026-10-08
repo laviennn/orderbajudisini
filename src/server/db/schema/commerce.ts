@@ -80,6 +80,10 @@ export const shippingQuotes = pgTable(
       .notNull()
       .references(() => addresses.id, { onDelete: "restrict" }),
     cartFingerprint: text("cart_fingerprint").notNull(),
+    contextFingerprint: text("context_fingerprint"),
+    testOnly: boolean("test_only").notNull().default(false),
+    courierName: text("courier_name"),
+    serviceName: text("service_name"),
     provider: text("provider").notNull(),
     courier: text("courier").notNull(),
     service: text("service").notNull(),
@@ -90,6 +94,10 @@ export const shippingQuotes = pgTable(
   },
   (t) => [
     moneyCheck("quote_cost_valid", t.cost),
+    check(
+      "quote_context_valid",
+      sql`${t.contextFingerprint} is null or ${t.contextFingerprint} ~ '^[a-f0-9]{64}$'`,
+    ),
     foreignKey({
       name: "quote_address_customer_fk",
       columns: [t.addressId, t.customerId],
@@ -114,6 +122,7 @@ export const orders = pgTable(
     id: id(),
     orderNumber: text("order_number").notNull().unique(),
     publicTokenHash: text("public_token_hash").notNull().unique(),
+    publicTokenCiphertext: text("public_token_ciphertext"),
     idempotencyKey: uuid("idempotency_key").notNull().unique(),
     requestHash: text("request_hash").notNull(),
     customerId: uuid("customer_id")
@@ -166,6 +175,10 @@ export const orders = pgTable(
     check(
       "orders_token_hash_valid",
       sql`${t.publicTokenHash} ~ '^[a-f0-9]{64}$'`,
+    ),
+    check(
+      "orders_token_envelope_valid",
+      sql`${t.publicTokenCiphertext} is null or ${t.publicTokenCiphertext} ~ '^v1[.][a-f0-9]{24}[.][a-f0-9]{32}[.][a-f0-9]{64}$'`,
     ),
     index("orders_status_created_idx").on(t.status, t.createdAt),
     index("orders_expiry_idx").on(t.status, t.paymentDueAt),
@@ -290,6 +303,8 @@ export const payments = pgTable(
       .notNull(),
     expectedAmount: amount("expected_amount"),
     status: paymentStatus("status").notNull().default("pending"),
+    proofTokenHash: text("proof_token_hash").unique(),
+    proofTokenCiphertext: text("proof_token_ciphertext"),
     proofObjectKey: text("proof_object_key"),
     proofMime: text("proof_mime"),
     proofBytes: integer("proof_bytes"),

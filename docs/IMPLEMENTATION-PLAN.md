@@ -1,6 +1,28 @@
 # Implementation plan
 
-## Current status — Phase 3.5 operational recovery
+## Current status — Phase 4C checkout integration
+
+- [x] Implemented checkout API schema and handlers with accurate HTTP status code mapping.
+- [x] Integrated `publicOrder` query for unauthenticated order confirmation retrieval using secure tokens.
+- [x] Created `Checkout` React form with Indonesian address validation, dynamic shipping quotes, and idempotent submission.
+- [x] Created `/checkout` and `/order/[publicToken]` storefront pages with `noindex` configurations.
+- [x] Unit tests for checkout utilities, ticket sealing/unsealing, and validation.
+- [x] End-to-end integration test validating checkout flow, idempotent submissions, and shipping options against the test database.
+- [x] [CHECKOUT-IMPLEMENTATION.md](CHECKOUT-IMPLEMENTATION.md) documents security assumptions, ticket lifecycle, and order state machine.
+- [x] Implement Phase 4D (reservation expiry and regression tests).
+
+## Phase 4A order domain (historical record)
+
+- [x] Reused transactional order/reservation/snapshot infrastructure; strict normalized request/idempotency handling and active-category availability validation.
+- [x] Locked 3-item/Rp100,000 bundle cap: no surcharge, authoritative DB pricing, deterministic allocation and historical compatibility.
+- [x] Random 256-bit public order tokens with encrypted retry recovery; migration `0004_order_token_envelope.sql` adds the envelope and new-order discount-only guards.
+- [x] Focused verification: 21 pricing/token unit tests + 17 real PostgreSQL order tests passed. Proven overlapping stock contention: 1 success, 1 `PRODUCT_UNAVAILABLE`, 1 reservation. Typecheck, changed-file lint and migration check passed.
+- [x] Concise domain documentation: [ORDER-DOMAIN.md](ORDER-DOMAIN.md).
+- [ ] Production migration/release and Phase 4B checkout/quote integration — not performed or begun.
+
+Phase 4A resolves the previous price-increase policy question: bundles must never increase the normal total. Existing campaign targeting/ordering and trusted-quote schema remain; no shipping provider, checkout UI, payment proof or cron is added. Historical phase records below describe their original scope. No full browser suite, unrelated feature tests, production build or visual QA was run for this subphase, as requested.
+
+## Phase 3.5 operational recovery
 
 The Phase 3 audit correctly identified absent Phase 2 tooling. This recovery implements that missing capability on the existing architecture. See [ADMIN-PRODUCT-IMPLEMENTATION.md](ADMIN-PRODUCT-IMPLEMENTATION.md) and [MEDIA-PIPELINE.md](MEDIA-PIPELINE.md).
 
@@ -255,3 +277,6 @@ Assessment and Phase 0 implementation delivered. No later-phase commerce feature
 - Production dependency audit: zero reported vulnerabilities.
 - Full development-tool audit: **not clean**; nine reported affected-package advisories (four moderate via Drizzle Kit/esbuild, five high via Next lint/glob/braces). See FOUNDATION.md. ESLint 9 remains necessary for the current plugin peer ranges; Auth.js is a pinned beta. These are outstanding maintenance risks, not suppressed checks.
 - Not verified: live Neon migration/connectivity/transactions, live R2 signing/permissions/CORS, working staff identity provider, Vercel deployment, remote CI execution and any future commerce flow. No credentials were supplied; no fake successful integration was substituted.
+
+### Phase 5B Completed
+WhatsApp Order Confirmation has been completed and verified.

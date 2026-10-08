@@ -35,6 +35,7 @@ export interface StorageAdapter {
   privateProofUrl(key: string): Promise<{ url: string; expiresIn: number }>;
   publicMediaUrl(key: string): string;
   readProductSource(key: string, maximumBytes: number): Promise<Buffer>;
+  readPaymentProof(key: string, maximumBytes: number): Promise<Buffer>;
   writeProductVariant(key: string, body: Buffer): Promise<void>;
   deleteObject(purpose: StoragePurpose, key: string): Promise<void>;
 }
@@ -72,7 +73,8 @@ export function getStorage(): StorageAdapter {
   }
   const client = new S3Client({
     region: "auto",
-    endpoint: `https://${account}.r2.cloudflarestorage.com`,
+    endpoint: process.env.TEST_STORAGE_URL || `https://${account}.r2.cloudflarestorage.com`,
+    forcePathStyle: !!process.env.TEST_STORAGE_URL,
     credentials: { accessKeyId, secretAccessKey },
     requestChecksumCalculation: "WHEN_REQUIRED",
     maxAttempts: 2,
@@ -94,6 +96,28 @@ export function getStorage(): StorageAdapter {
   return {
     async readProductSource(key, maximumBytes) {
       assertObjectKey(key, "product-source");
+      return providerCall(async () => {
+        const object = await client.send(
+          new GetObjectCommand({ Bucket: privateBucket, Key: key }),
+        );
+        if (
+          !object.Body ||
+          !object.ContentLength ||
+          object.ContentLength > maximumBytes
+        )
+          throw new AppError("VALIDATION_ERROR");
+        const chunks: Uint8Array[] = [];
+        let length = 0;
+        for await (const chunk of object.Body as AsyncIterable<Uint8Array>) {
+          length += chunk.byteLength;
+          if (length > maximumBytes) throw new AppError("VALIDATION_ERROR");
+          chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+      });
+    },
+    async readPaymentProof(key, maximumBytes) {
+      assertObjectKey(key, "payment-proof");
       return providerCall(async () => {
         const object = await client.send(
           new GetObjectCommand({ Bucket: privateBucket, Key: key }),

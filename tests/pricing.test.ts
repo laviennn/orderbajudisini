@@ -41,11 +41,7 @@ describe("integer IDR bundle pricing", () => {
   ])("%i eligible products total %i", (count, total) => {
     const result = calculateCartPricing(products(count), [promotion], now);
     expect(result.merchandiseTotal).toBe(total);
-    expect(
-      result.originalSubtotal -
-        result.promotionDiscount +
-        result.promotionSurcharge,
-    ).toBe(total);
+    expect(result.originalSubtotal - result.promotionDiscount).toBe(total);
     expect(result.lines.reduce((s, l) => s + l.total, 0)).toBe(total);
     expect(
       result.appliedPromotions.reduce((s, p) => s + p.bundleCount, 0),
@@ -88,7 +84,7 @@ describe("integer IDR bundle pricing", () => {
       ),
     ).toThrow();
   });
-  it("respects explicit cheaper-normal versus fixed-price policy", () => {
+  it("caps every complete bundle at its normal total, including legacy fixed-price rules", () => {
     const items = products(3).map((p) => ({ ...p, price: 20000 }));
     expect(calculateCartPricing(items, [promotion], now).merchandiseTotal).toBe(
       60000,
@@ -98,8 +94,9 @@ describe("integer IDR bundle pricing", () => {
       [{ ...promotion, pricePolicy: "fixed_bundle" }],
       now,
     );
-    expect(fixed.merchandiseTotal).toBe(100000);
-    expect(fixed.promotionSurcharge).toBe(40000);
+    expect(fixed.merchandiseTotal).toBe(60000);
+    expect(fixed.promotionSurcharge).toBe(0);
+    expect(fixed.appliedPromotions).toEqual([]);
   });
   it("respects schedules, category scope and inactive campaigns", () => {
     for (const rule of [
@@ -113,7 +110,7 @@ describe("integer IDR bundle pricing", () => {
         calculateCartPricing(products(3), [rule], now).merchandiseTotal,
       ).toBe(135000);
   });
-  it("supports quantities, other bundle sizes, deterministic priority, and no double-discount", () => {
+  it("supports quantities, deterministic priority, and no double-discount", () => {
     const p = products(1);
     p[0]!.quantity = 6;
     expect(
@@ -123,13 +120,13 @@ describe("integer IDR bundle pricing", () => {
         now,
       ).merchandiseTotal,
     ).toBe(200000);
-    expect(
+    expect(() =>
       calculateCartPricing(
         products(4),
         [{ ...promotion, requiredQuantity: 4, bundlePrice: 120000 }],
         now,
-      ).merchandiseTotal,
-    ).toBe(120000);
+      ),
+    ).toThrow();
   });
   it("rejects duplicate lines, fractional IDR and unsafe overflow", () => {
     expect(() =>
@@ -162,4 +159,35 @@ it("does not discount noneligible products or let interleaving break bundles", (
   expect(calculateCartPricing(mixed, [promotion], now).merchandiseTotal).toBe(
     190000,
   );
+});
+
+it("caps each group separately and preserves a normally-priced remainder", () => {
+  const items = products(7).map((p, i) => ({
+    ...p,
+    price: [60000, 50000, 45000, 20000, 20000, 20000, 15000][i]!,
+  }));
+  const result = calculateCartPricing(items, [promotion], now);
+  expect(result.merchandiseTotal).toBe(175000);
+  expect(result.promotionDiscount).toBe(55000);
+  expect(result.promotionSurcharge).toBe(0);
+  expect(result.appliedPromotions[0]?.bundleCount).toBe(1);
+  expect(result.lines.find((l) => l.productId === "test-6")?.total).toBe(15000);
+});
+it("keeps zero-price bundles and equal-price ties deterministic without surcharges", () => {
+  for (const price of [0, 1, 33333, 33334, 50000]) {
+    const items = products(6).map((p) => ({ ...p, price }));
+    const result = calculateCartPricing(items, [promotion], now);
+    expect(result.merchandiseTotal).toBe(2 * Math.min(3 * price, 100000));
+    expect(result.appliedPromotions[0]?.bundleCount ?? 0).toBe(
+      price * 3 > 100000 ? 2 : 0,
+    );
+    expect(
+      result.lines.every(
+        (l) => Number.isSafeInteger(l.total) && l.total <= l.originalTotal,
+      ),
+    ).toBe(true);
+    expect(
+      calculateCartPricing([...items].reverse(), [promotion], now),
+    ).toEqual(result);
+  }
 });

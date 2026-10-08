@@ -12,6 +12,15 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "@/server/db/operations";
 import * as s from "@/server/db/schema";
 import { startTestDatabase } from "./database";
+import { shippingContextFingerprint } from "@/server/shipping/context";
+const testOrigin = {
+  province: "TEST",
+  city: "TEST",
+  district: "TEST",
+  subdistrict: null,
+  postalCode: "00000",
+  providerDestinationId: null,
+};
 let db: Database;
 const authMock = vi.hoisted(() => vi.fn());
 vi.mock("@/server/db", () => ({ getDatabase: () => db }));
@@ -66,6 +75,7 @@ const identity = (id: string, sessionVersion = 0) => ({
 beforeAll(async () => {
   instance = await startTestDatabase();
   db = instance.db;
+  vi.stubEnv("SHIPPING_PROVIDER", "TEST PROVIDER");
   vi.stubEnv("AUTH_SECRET", "test-secret-".repeat(5));
   const owner = await bootstrapOwner(db, {
     name: "TEST OWNER",
@@ -81,7 +91,12 @@ beforeAll(async () => {
   )[0]!.id;
   await db
     .insert(s.storeSettings)
-    .values({ id: 1, storeName: "TEST ONLY STORE", reservationMinutes: 30 });
+    .values({
+      id: 1,
+      storeName: "TEST ONLY STORE",
+      shippingOrigin: testOrigin,
+      reservationMinutes: 30,
+    });
 });
 afterAll(async () => {
   await instance?.stop();
@@ -139,6 +154,7 @@ async function fixture(count = 1, eligible = false, quantity = 1) {
     })
     .returning();
   const quoteValues = {
+    contextFingerprint: shippingContextFingerprint(testOrigin, address!),
     customerId: customer!.id,
     addressId: address!.id,
     cartFingerprint: cartFingerprint(
@@ -727,7 +743,7 @@ describe("real PostgreSQL foundation", () => {
     const other = await fixture();
     await expect(
       createReservedOrder({ ...other.input, shippingQuoteId: f.quote.id }),
-    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    ).rejects.toMatchObject({ code: "INVALID_SHIPPING_SELECTION" });
     await expect(
       db
         .insert(s.shippingQuotes)

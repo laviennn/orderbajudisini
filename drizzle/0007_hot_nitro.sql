@@ -1,0 +1,1 @@
+ALTER TABLE "payments" ADD COLUMN "proof_token_ciphertext" text;

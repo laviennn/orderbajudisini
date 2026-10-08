@@ -16,6 +16,8 @@ import {
   reviews,
   roles,
   users,
+  bankAccounts,
+  storeSettings,
 } from "../../src/server/db/schema";
 await rm(".next/cache/fetch-cache", { recursive: true, force: true });
 const database = await startTestDatabase();
@@ -35,8 +37,40 @@ await database.db.insert(users).values({
   roleId: orderRole!.id,
   status: "active",
 });
+await database.db.insert(bankAccounts).values({
+  bankName: "Bank TEST",
+  accountHolder: "PT TEST",
+  accountNumber: "1234567890",
+  active: true,
+  sortOrder: 0,
+});
+await database.db.insert(storeSettings).values({
+  id: 1,
+  storeName: "TEST STORE",
+  whatsappNumber: "08123456789",
+  supportEmail: "support@test.invalid",
+  displayAddress: "Jalan Test No. 1",
+  reservationMinutes: 30,
+  shippingOrigin: {
+    province: "DKI Jakarta",
+    city: "Jakarta Selatan",
+    district: "Setiabudi",
+    subdistrict: "Kuningan",
+    postalCode: "12920",
+    providerDestinationId: null,
+  },
+});
 const testObjects = new Map<string, { body: Buffer; mime: string }>();
 const storage = createServer(async (request, response) => {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (request.method === "OPTIONS") {
+    response.writeHead(204).end();
+    return;
+  }
+
   const path = new URL(request.url || "/", "http://127.0.0.1").pathname;
   const key = decodeURIComponent(path.slice(1));
   if (request.method === "PUT") {
@@ -108,6 +142,7 @@ const rows = await database.db
       sizeLabel: i % 2 ? "M" : "L",
       conditionGrade: "TEST Baik",
       price: 45000,
+      weightGrams: 250,
       status:
         i === 30
           ? ("sold" as const)
@@ -201,8 +236,9 @@ const address = proxy.address();
 if (!address || typeof address === "string") throw new Error("Invalid proxy");
 const password = database.pool.options.password;
 if (typeof password !== "string") throw new Error("Invalid test credential");
-const env = {
+const env: NodeJS.ProcessEnv = {
   ...process.env,
+  NODE_ENV: "test",
   DATABASE_URL: `postgresql://test_runner:${password}@127.0.0.1:${database.pool.options.port}/postgres`,
   AUTH_ENABLED: "true",
   AUTH_TRUST_HOST: "true",
@@ -214,6 +250,7 @@ const env = {
   R2_PUBLIC_BUCKET: "test-public",
   R2_PRIVATE_BUCKET: "test-private",
   R2_PUBLIC_BASE_URL: "https://media.example.invalid",
+  SHIPPING_PROVIDER: "test",
   TEST_WS_PROXY: `127.0.0.1:${address.port}`,
   NODE_OPTIONS: "--import ./tests/e2e/neon-proxy.mjs",
 };
