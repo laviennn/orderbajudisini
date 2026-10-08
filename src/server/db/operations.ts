@@ -31,7 +31,7 @@ export async function databaseOperation<T>(
       throw new AppError("CONFLICT");
     if (code === "23514" || code === "23503" || code === "23502")
       throw new AppError("VALIDATION_ERROR");
-    console.error({ event: "database_operation_failed" });
+    console.error({ event: "database_operation_failed", error });
     throw new AppError("PROVIDER_UNAVAILABLE");
   }
 }

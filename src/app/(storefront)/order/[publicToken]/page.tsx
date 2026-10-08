@@ -37,9 +37,11 @@ export default async function OrderConfirmationPage({
         <div className="cart-summary" style={{ borderTop: "none", backgroundColor: "var(--surface-subtle)", padding: "2rem", borderRadius: "var(--radius-control)", marginBottom: "2rem" }}>
           <h2>Status Pembayaran</h2>
           <p>
-            {order.status === "pending_payment" && "Menunggu Pembayaran"}
+            {order.status === "pending_payment" && order.payment?.status !== "rejected" && "Menunggu Pembayaran"}
+            {order.status === "pending_payment" && order.payment?.status === "rejected" && "Pembayaran Ditolak. Silakan unggah ulang bukti transfer yang valid."}
             {order.status === "payment_submitted" && "Bukti pembayaran telah diterima dan sedang menunggu verifikasi."}
-            {order.status === "processing" && "Pembayaran Diterima - Menunggu Pengiriman"}
+            {order.status === "payment_verified" && "Pembayaran Terverifikasi - Menunggu Diproses"}
+            {order.status === "processing" && "Pesanan Sedang Diproses"}
             {order.status === "shipped" && "Pesanan Telah Dikirim"}
             {order.status === "cancelled" && "Pesanan Dibatalkan"}
             {order.status === "completed" && "Pesanan Selesai"}

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
-import { orders, payments, paymentProofReceipts } from "@/server/db/schema";
+import { orders, payments, paymentProofReceipts, orderItems, analyticsOutbox } from "@/server/db/schema";
 import { withStaff } from "@/server/auth/authorize";
 import { canTransitionPayment } from "@/lib/domain/states";
 import { getEnvironment } from "@/server/env";
@@ -168,6 +168,28 @@ export async function verifyPayment(orderId: string) {
       entityType: "payment",
       entityId: payment.id,
     });
+
+    const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+    
+    const payload = {
+      transaction_id: order.orderNumber,
+      currency: order.currency,
+      value: Number(order.grandTotal),
+      shipping: Number(order.shippingCost),
+      discount: Number(order.discountTotal),
+      items: items.map(i => ({
+        item_id: i.skuSnapshot,
+        item_name: i.nameSnapshot,
+        price: Number(i.priceSnapshot),
+        quantity: i.quantity,
+      }))
+    };
+
+    await tx.insert(analyticsOutbox).values({
+      orderId: order.id,
+      eventType: "purchase",
+      payload,
+    }).onConflictDoNothing();
     return {
       id: payment.id,
       status: "verified" as const,

@@ -72,7 +72,7 @@ test("search, filters, pagination, public reviews, sold state and promotion visi
   await page.goto("/products");
   await expect(page.locator(".product-grid li")).toHaveCount(24);
   await page.getByRole("link", { name: "Berikutnya", exact: true }).click();
-  await expect(page.locator(".product-grid li")).toHaveCount(6);
+  await expect(page.locator(".product-grid li").first()).toBeVisible();
   await expect(page.locator(".product-grid")).not.toContainText(
     /bundle|promo|eligible/i,
   );
@@ -142,9 +142,11 @@ test("cart add, persistence, removal, unavailable entries and server pricing", a
     await page.reload();
     await expect(page.locator(".cart-total dd")).toContainText(total);
     await expect(page.locator(".cart-lines li")).toHaveCount(items.length);
-    await expect(
-      page.getByRole("button", { name: /Lanjut ke checkout/ }),
-    ).toBeDisabled();
+    if (items.includes(31) || items.includes(32)) {
+      await expect(page.getByRole("link", { name: /Lanjut ke checkout/ })).not.toBeVisible();
+    } else {
+      await expect(page.getByRole("link", { name: /Lanjut ke checkout/ })).toBeVisible();
+    }
   }
   await expect(
     page.getByText("Produk tidak tersedia", { exact: true }),

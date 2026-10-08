@@ -45,6 +45,11 @@
 * {
   box-sizing: border-box;
 }
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
 body {
   margin: 0;
   background: var(--background);
@@ -737,8 +742,20 @@ button:disabled {
 }
 
 /* Operational administration shares tokens, with denser forms and table rhythm. */
+html:has(.admin-frame) {
+  overflow: hidden;
+  width: 100%;
+}
+html:has(.admin-frame) body {
+  overflow-y: auto;
+  height: 100dvh;
+  width: 100%;
+}
 .admin-frame {
   min-height: 100dvh;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 .admin-header {
   display: flex;
@@ -759,6 +776,7 @@ button:disabled {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
   max-width: 1500px;
+  width: 100%;
   margin: auto;
 }
 .admin-nav {
@@ -779,6 +797,9 @@ button:disabled {
 .admin-content {
   padding: 2rem;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  contain: content;
 }
 .admin-content h1 {
   font: 500 1.75rem/1.25 var(--font-body);
@@ -855,11 +876,19 @@ button:disabled {
 }
 .admin-table-scroll {
   overflow-x: auto;
+  width: 100%;
+  max-width: 100%;
+  contain: paint;
 }
 .admin-table {
   border-collapse: collapse;
   width: 100%;
   font-size: 0.875rem;
+}
+@media (min-width: 768px) {
+  .admin-table {
+    min-width: 850px;
+  }
 }
 .admin-table th,
 .admin-table td {
@@ -1017,15 +1046,27 @@ button:disabled {
   }
   .admin-workspace {
     display: block;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
   }
   .admin-nav {
     flex-direction: row;
     padding: 0.5rem;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  .admin-nav a {
+    white-space: nowrap;
   }
   .admin-content {
     padding: 1.25rem;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
   }
   .admin-counts {
     grid-template-columns: 1fr 1fr;
@@ -1042,8 +1083,18 @@ button:disabled {
     align-items: start;
     flex-direction: column;
   }
+  .admin-table-scroll {
+    max-width: 100%;
+  }
   .admin-table {
-    min-width: 850px;
+    table-layout: fixed;
+    width: 100%;
+    min-width: 0;
+    word-break: break-all;
+  }
+  .admin-table th, .admin-table td {
+    padding: 0.5rem;
+    overflow: hidden;
   }
   .editor-actions {
     flex-wrap: wrap;

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, beforeAll, vi } from "vitest";
-import { getDatabase } from "@/server/db";
 import { startTestDatabase } from "./database";
 import * as s from "@/server/db/schema";
 import { AppError } from "@/lib/errors";
@@ -115,7 +114,7 @@ test("rejects invalid public token", async () => {
 test("handles whatsapp configuration safely and correctly formats message", async () => {
   const { products } = await fixture([45000]);
   const origin = { province: "TEST", city: "TEST", district: "TEST", subdistrict: "TEST", postalCode: "12345" };
-  let req: any;
+  let req: Awaited<ReturnType<typeof prepareCheckout>>;
   try {
     req = await prepareCheckout({
       ids: [products[0]!.id],
@@ -128,8 +127,8 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
         ...origin,
       }
     });
-  } catch (err: any) {
-    console.error(err.fieldErrors);
+  } catch (err) {
+    if (err instanceof AppError) console.error(err.fieldErrors);
     throw err;
   }
 

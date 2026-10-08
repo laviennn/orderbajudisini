@@ -57,6 +57,13 @@
       "when": 1791392466134,
       "tag": "0007_hot_nitro",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791449735176,
+      "tag": "0008_stormy_earthquake",
+      "breakpoints": true
     }
   ]
 }

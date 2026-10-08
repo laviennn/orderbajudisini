@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+
 
 export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
   const [loading, setLoading] = useState(false);

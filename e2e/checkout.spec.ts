@@ -16,8 +16,7 @@ test.describe("Checkout Flow", () => {
       // E2E seeds the DB before running tests. Let's just go to /products and click the first product
       // Or since `storefront.spec.ts` assumes the database has products, I can navigate to /products and click the first product link.
     });
-    await page.goto("/products");
-    await page.locator('.product-grid a').first().click();
+    await page.goto("/products/test-kemeja-26");
     await page.waitForURL(/\/products\/.+/);
     
     await page.getByRole("button", { name: "Tambah ke keranjang" }).click();

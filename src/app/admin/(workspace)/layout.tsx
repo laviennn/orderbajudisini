@@ -42,6 +42,9 @@ export default async function AdminWorkspace({
           {hasPermission(actor, "categories.read") && (
             <Link href="/admin/categories">Kategori</Link>
           )}
+          {hasPermission(actor, "payments.verify") && (
+            <Link href="/admin/payments">Pembayaran</Link>
+          )}
         </nav>
         <div className="admin-content">{children}</div>
       </div>

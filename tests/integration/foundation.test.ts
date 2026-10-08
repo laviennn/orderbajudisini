@@ -437,7 +437,7 @@ describe("real PostgreSQL foundation", () => {
   it("keeps submitted orders reserved; verification is permission-checked, atomic, and idempotent", async () => {
     const f = await fixture();
     const order = await createReservedOrder(f.input);
-    expect(await proof(order)).toEqual({ status: "submitted" });
+    expect(await proof(order)).toMatchObject({ status: "submitted" });
     const [submitted] = await db
       .select()
       .from(s.payments)

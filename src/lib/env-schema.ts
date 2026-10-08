@@ -51,6 +51,8 @@ const schema = z
         );
       }),
     ),
+    GA4_MEASUREMENT_ID: optional(z.string().min(1)),
+    GA4_API_SECRET: optional(z.string().min(1)),
   })
   .superRefine((value, ctx) => {
     if (

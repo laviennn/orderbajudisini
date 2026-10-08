@@ -7,11 +7,14 @@ import {
   rateSchema,
   type ShippingProvider,
 } from "./contract";
+import { rajaOngkirStarterProvider } from "./rajaongkir";
 
 export function shippingConfiguration() {
   const env = getEnvironment();
   if (!env.SHIPPING_PROVIDER)
     return { status: "unavailable", reason: "not_configured" } as const;
+  if (env.SHIPPING_PROVIDER === "RAJAONGKIR")
+    return { status: "active", provider: "RAJAONGKIR" } as const;
   if (env.SHIPPING_PROVIDER === "test" && env.NODE_ENV !== "production")
     return { status: "test", provider: "test" } as const;
   return {
@@ -62,7 +65,11 @@ const testProvider: ShippingProvider = {
   },
 };
 export function getShippingProvider(): ShippingProvider {
-  if (shippingConfiguration().status !== "test")
+  const config = shippingConfiguration();
+  if (config.status === "active" && config.provider === "RAJAONGKIR") {
+    return rajaOngkirStarterProvider;
+  }
+  if (config.status !== "test")
     throw new AppError("SHIPPING_NOT_CONFIGURED");
   assertProviderAllowed(testProvider);
   return testProvider;

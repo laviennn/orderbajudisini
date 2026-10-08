@@ -236,9 +236,9 @@ Neon connection and migration access; strong Auth secret and chosen identity pro
 2. Checkout, provider adapter, transaction-safe reservation and order operations.
 3. Manual payment/proof/verification and WhatsApp CTA.
 4. Shipping operations and safe guest tracking.
-5. Complete operator lifecycle and administration.
-6. Editable content and technical SEO.
-7. Typed analytics and conversion deduplication.
+5. Complete operator lifecycle and administration (Phase 5A-5D done).
+6. Editable content and technical SEO. (PENDING)
+7. Typed analytics and conversion deduplication (Phase 5D GA4/Ads implemented, outbox integrated).
 8. Integrated security, accessibility, performance and operational launch gates.
 
 ## Open Decisions
