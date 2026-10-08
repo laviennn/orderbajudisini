@@ -5,7 +5,7 @@ import { AppError } from "@/lib/errors";
 import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
 import { withStaff } from "@/server/auth/authorize";
-import { bankAccounts, seoSettings, storeSettings } from "@/server/db/schema";
+import { bankAccounts, seoSettings, storeSettings, qrisSettings } from "@/server/db/schema";
 import { destinationSchema } from "@/server/shipping/contract";
 import { writeAudit } from "./audit";
 export const seoInput = z
@@ -78,6 +78,8 @@ export async function saveBankAccount(input: unknown) {
         bankName: z.string().trim().min(1).max(120),
         accountNumber: z.string().regex(/^[0-9]{4,40}$/),
         accountHolder: z.string().trim().min(1).max(200),
+        instructions: z.string().trim().max(2000).nullable().optional(),
+        logoObjectKey: z.string().nullable().optional(),
         active: z.boolean(),
         sortOrder: z.number().int().min(0).max(1000),
       })
@@ -133,6 +135,43 @@ export async function setStoreSettings(input: unknown) {
       actorId: actor.id,
       action: "store.updated",
       entityType: "store_settings",
+      entityId: "1",
+      metadata: { changedFields: Object.keys(data) },
+    });
+    return { updated: true };
+  });
+}
+export async function getQrisSettings() {
+  return databaseOperation(async () => {
+    const [row] = await getDatabase()
+      .select()
+      .from(qrisSettings)
+      .where(eq(qrisSettings.id, 1));
+    return row ?? null;
+  });
+}
+export async function saveQrisSettings(input: unknown) {
+  return withStaff("settings.manage", async (tx, actor) => {
+    const data = z
+      .object({
+        merchantName: z.string().trim().max(200).nullable().optional(),
+        imageObjectKey: z.string().trim().min(1),
+        instructions: z.string().trim().max(2000).nullable().optional(),
+        active: z.boolean(),
+      })
+      .strict()
+      .parse(input);
+    await tx
+      .insert(qrisSettings)
+      .values({ id: 1, ...data, updatedBy: actor.id })
+      .onConflictDoUpdate({
+        target: qrisSettings.id,
+        set: { ...data, updatedBy: actor.id, updatedAt: new Date() },
+      });
+    await writeAudit(tx, {
+      actorId: actor.id,
+      action: "qris.updated",
+      entityType: "qris_settings",
       entityId: "1",
       metadata: { changedFields: Object.keys(data) },
     });

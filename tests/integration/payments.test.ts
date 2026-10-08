@@ -104,8 +104,8 @@ async function createOrder(price = 45000) {
       province: "TEST", city: "TEST", district: "TEST", postalCode: "00000",
     }
   };
-  const { choices } = await prepareCheckout(prepareData);
-  const { publicToken } = await submitCheckout({ reference: choices[0]!.reference });
+  const { choices, payments } = await prepareCheckout(prepareData);
+  const { publicToken } = await submitCheckout({ reference: choices[0]!.reference, paymentMethodId: payments[0]!.id });
 
   const [order] = await db.select().from(s.orders).where(eq(s.orders.publicTokenHash, hashToken(publicToken)));
   return { publicToken, order: order! };

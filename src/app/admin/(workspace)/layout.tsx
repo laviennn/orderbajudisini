@@ -35,15 +35,57 @@ export default async function AdminWorkspace({
       </header>
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Menu administrasi">
-          <Link href="/admin">Ringkasan</Link>
+          <Link href="/admin">Dashboard</Link>
+          
+          <div className="nav-group">Katalog</div>
           {hasPermission(actor, "products.read") && (
             <Link href="/admin/products">Produk</Link>
           )}
           {hasPermission(actor, "categories.read") && (
             <Link href="/admin/categories">Kategori</Link>
           )}
+          {hasPermission(actor, "reviews.read") && (
+            <Link href="/admin/reviews">Ulasan</Link>
+          )}
+          
+          <div className="nav-group">Pesanan</div>
+          {hasPermission(actor, "orders.read") && (
+            <Link href="/admin/orders">Semua Pesanan</Link>
+          )}
           {hasPermission(actor, "payments.verify") && (
-            <Link href="/admin/payments">Pembayaran</Link>
+            <Link href="/admin/payments">Verifikasi Pembayaran</Link>
+          )}
+          {hasPermission(actor, "shipments.read") && (
+            <Link href="/admin/shipments">Pengiriman</Link>
+          )}
+          
+          <div className="nav-group">Konten & Pemasaran</div>
+          {hasPermission(actor, "content.read") && (
+            <Link href="/admin/banners">Banner</Link>
+          )}
+          {hasPermission(actor, "promotions.read") && (
+            <Link href="/admin/promotions">Promosi</Link>
+          )}
+          {hasPermission(actor, "media.read") && (
+            <Link href="/admin/media">Media Library</Link>
+          )}
+          {hasPermission(actor, "seo.read") && (
+            <Link href="/admin/seo">Pengaturan SEO</Link>
+          )}
+          
+          <div className="nav-group">Pengaturan</div>
+          {hasPermission(actor, "settings.read") && (
+            <>
+              <Link href="/admin/payment-methods">Metode Pembayaran</Link>
+              <Link href="/admin/store-settings">Pengaturan Toko</Link>
+              <Link href="/admin/social-media">Media Sosial</Link>
+            </>
+          )}
+          {hasPermission(actor, "operators.read") && (
+            <Link href="/admin/operators">Operator</Link>
+          )}
+          {hasPermission(actor, "audit.read") && (
+            <Link href="/admin/audit-logs">Log Audit</Link>
           )}
         </nav>
         <div className="admin-content">{children}</div>

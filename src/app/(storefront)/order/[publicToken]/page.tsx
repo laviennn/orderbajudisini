@@ -46,7 +46,7 @@ export default async function OrderConfirmationPage({
             {order.status === "cancelled" && "Pesanan Dibatalkan"}
             {order.status === "completed" && "Pesanan Selesai"}
           </p>
-          {(order.status === "pending_payment" || order.status === "payment_submitted") && order.bank && (
+          {(order.status === "pending_payment" || order.status === "payment_submitted") && order.paymentMethod === 'bank_transfer' && order.bank && (
             <div style={{ marginTop: "1.5rem" }}>
               <p>Silakan lakukan transfer ke rekening berikut:</p>
               <div style={{ padding: "1rem", backgroundColor: "var(--surface-background)", borderRadius: "var(--radius-control)", marginTop: "0.5rem" }}>
@@ -54,6 +54,33 @@ export default async function OrderConfirmationPage({
                 {order.bank.accountNumber}<br />
                 A.n. {order.bank.accountHolder}
               </div>
+              {order.bank.instructions && (
+                <p style={{ marginTop: "1rem" }}>{order.bank.instructions}</p>
+              )}
+              <p className="small-note" style={{ marginTop: "1rem" }}>Instruksi lebih lanjut akan dikirimkan ke WhatsApp {order.address.phone}.</p>
+              
+              {order.status === "pending_payment" && (
+                <PaymentProofUpload publicToken={publicToken} />
+              )}
+              {order.status === "payment_submitted" && (
+                <WhatsAppConfirmation publicToken={publicToken} />
+              )}
+            </div>
+          )}
+
+          {(order.status === "pending_payment" || order.status === "payment_submitted") && order.paymentMethod === 'qris' && order.qris && (
+            <div style={{ marginTop: "1.5rem" }}>
+              <p>Silakan lakukan scan QRIS berikut:</p>
+              <div style={{ padding: "1rem", backgroundColor: "var(--surface-background)", borderRadius: "var(--radius-control)", marginTop: "0.5rem", textAlign: "center" }}>
+                {order.qris.merchantName && <strong>{order.qris.merchantName}</strong>}
+                <div style={{ marginTop: "1rem" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/media/${order.qris.imageObjectKey}`} alt="QRIS" style={{ maxWidth: "100%", maxHeight: "300px" }} />
+                </div>
+              </div>
+              {order.qris.instructions && (
+                <p style={{ marginTop: "1rem" }}>{order.qris.instructions}</p>
+              )}
               <p className="small-note" style={{ marginTop: "1rem" }}>Instruksi lebih lanjut akan dikirimkan ke WhatsApp {order.address.phone}.</p>
               
               {order.status === "pending_payment" && (

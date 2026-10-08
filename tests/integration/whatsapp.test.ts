@@ -134,6 +134,7 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
 
   const { publicToken } = await submitCheckout({
     reference: req.choices[0]!.reference,
+    paymentMethodId: req.payments[0]!.id,
   });
 
   // Should reject if not payment_submitted

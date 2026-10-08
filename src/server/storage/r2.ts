@@ -81,7 +81,7 @@ export function getStorage(): StorageAdapter {
     requestHandler: { connectionTimeout: 5000, requestTimeout: 15000 },
   });
   const bucket = (purpose: StoragePurpose) =>
-    purpose === "product" ? publicBucket : privateBucket;
+    (purpose === "product" || purpose === "site-media") ? publicBucket : privateBucket;
 
   async function providerCall<T>(operation: () => Promise<T>): Promise<T> {
     try {

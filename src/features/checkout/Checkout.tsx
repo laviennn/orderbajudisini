@@ -29,6 +29,7 @@ export function Checkout() {
   const [subdistrict, setSubdistrict] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   
   const [state, setState] = useState<CheckoutState>({ status: "editing" });
   const [error, setError] = useState("");
@@ -93,6 +94,10 @@ export function Checkout() {
         throw new Error("Tidak ada opsi pengiriman tersedia untuk tujuan ini.");
       }
       
+      if (preview.payments && preview.payments.length > 0) {
+        setPaymentMethodId(preview.payments[0]!.id);
+      }
+      
       trackCommerce("add_shipping_info", cart.ids);
       setState({ status: "quotes_ready", preview, selectedQuoteRef: preview.choices[0]!.reference });
     } catch (err) {
@@ -115,7 +120,8 @@ export function Checkout() {
         body: JSON.stringify({
           action: "submit",
           data: {
-            reference: state.selectedQuoteRef
+            reference: state.selectedQuoteRef,
+            paymentMethodId
           }
         })
       });
@@ -230,6 +236,26 @@ export function Checkout() {
                   </div>
                   <div style={{ fontWeight: 500 }}>
                     {formatIdr(choice.cost)}
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <h2 style={{ marginTop: "2rem" }}>Pilih Metode Pembayaran</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {state.preview.payments?.map((payment: { id: string; name: string; type: string }) => (
+                <label key={payment.id} style={{ flexDirection: "row", alignItems: "flex-start", gap: "1rem", border: "1px solid var(--border)", padding: "1rem", borderRadius: "var(--radius-control)", cursor: "pointer" }}>
+                  <input 
+                    type="radio" 
+                    name="paymentChoice" 
+                    value={payment.id} 
+                    checked={paymentMethodId === payment.id} 
+                    onChange={() => setPaymentMethodId(payment.id)}
+                    disabled={state.status === "submitting"}
+                    style={{ width: "auto", minHeight: "auto", marginTop: "4px" }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: 0 }}>{payment.name}</h3>
                   </div>
                 </label>
               ))}

@@ -6,7 +6,7 @@ import { AppError } from "@/lib/errors";
 import { getEnvironment } from "@/server/env";
 import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
-import { addresses, bankAccounts, customers, orders, orderItems, payments, shipments } from "@/server/db/schema";
+import { addresses, bankAccounts, qrisSettings, customers, orders, orderItems, payments, shipments } from "@/server/db/schema";
 import { cartInput, validateCart } from "./cart";
 import { createShippingQuotes } from "./shipping-quotes";
 import { createReservedOrder, hashToken } from "./orders";
@@ -30,7 +30,7 @@ const details = z.object({
   ...destinationSchema.shape,
 }).strict();
 const prepareInput = z.object({ids: cartInput.shape.ids.min(1), customer: details}).strict();
-export type Ticket = {customerId:string;addressId:string;bankAccountId:string;items:{productId:string;quantity:number}[];idempotencyKey:string;shippingQuoteId:string;merchandiseTotal:number;expires:number;notes?:string};
+export type Ticket = {customerId:string;addressId:string;items:{productId:string;quantity:number}[];idempotencyKey:string;shippingQuoteId:string;merchandiseTotal:number;expires:number;notes?:string};
 function key() {
   const secret = getEnvironment().AUTH_SECRET;
   if (!secret) throw new AppError("NOT_CONFIGURED");
@@ -58,8 +58,18 @@ export async function prepareCheckout(input: unknown) {
     if (!cart.pricing || cart.items.some(i=>!i.available)) return {cart, choices:[]};
     const provider = getShippingProvider();
     const db = getDatabase();
-    const [bank] = await db.select().from(bankAccounts).where(eq(bankAccounts.active,true)).orderBy(asc(bankAccounts.sortOrder),asc(bankAccounts.id)).limit(1);
-    if (!bank) throw new AppError("NOT_CONFIGURED");
+    
+    // Fetch available payment methods
+    const [qris, banks] = await Promise.all([
+      db.select().from(qrisSettings).where(eq(qrisSettings.id, 1)).limit(1),
+      db.select().from(bankAccounts).where(eq(bankAccounts.active,true)).orderBy(asc(bankAccounts.sortOrder),asc(bankAccounts.id)),
+    ]);
+    const availablePayments = [];
+    if (qris[0]?.active) availablePayments.push({ id: "qris", name: "QRIS", type: "qris" });
+    banks.forEach(b => availablePayments.push({ id: b.id, name: `${b.bankName} - ${b.accountNumber}`, type: "bank_transfer" }));
+    
+    if (availablePayments.length === 0) throw new AppError("NOT_CONFIGURED");
+
     const context = await db.transaction(async tx=>{
       const [customer] = await tx.insert(customers).values({name:data.customer.name,phone:data.customer.phone,email:data.customer.email}).returning();
       const {name: _name, email: _email, notes: _notes, ...address} = data.customer;
@@ -73,18 +83,25 @@ export async function prepareCheckout(input: unknown) {
     const quotes = await createShippingQuotes({...context,items},provider);
     const idempotencyKey = randomUUID();
     return {cart, choices:quotes.map(q=>({
-      reference: seal({...context,bankAccountId:bank.id,items,idempotencyKey,shippingQuoteId:q.quoteId,merchandiseTotal:cart.pricing!.merchandiseTotal,expires:Date.now()+86400000,notes:data.customer.notes}),
+      reference: seal({...context,items,idempotencyKey,shippingQuoteId:q.quoteId,merchandiseTotal:cart.pricing!.merchandiseTotal,expires:Date.now()+86400000,notes:data.customer.notes}),
       courier:q.courierName, service:q.serviceName, estimate:q.estimate, cost:q.cost,
       total:cart.pricing!.merchandiseTotal+q.cost, expiresAt:q.expiresAt.toISOString(),testOnly:q.testOnly,
-    }))};
+    })), payments: availablePayments};
   });
 }
 export async function submitCheckout(input: unknown) {
   return databaseOperation(async()=>{
-    const {reference} = z.object({reference:z.string().min(50).max(20000)}).strict().parse(input);
+    const {reference, paymentMethodId} = z.object({
+      reference:z.string().min(50).max(20000),
+      paymentMethodId: z.string()
+    }).strict().parse(input);
     const {expires: _expires,merchandiseTotal,...request} = open(reference);
     void _expires;
-    const result = await createReservedOrder(request,{expectedMerchandiseTotal:merchandiseTotal});
+    
+    const paymentMethod = paymentMethodId === "qris" ? "qris" : "bank_transfer";
+    const bankAccountId = paymentMethodId === "qris" ? undefined : paymentMethodId;
+    
+    const result = await createReservedOrder({...request, paymentMethod, bankAccountId},{expectedMerchandiseTotal:merchandiseTotal});
     return {publicToken:result.publicToken};
   });
 }
@@ -97,14 +114,13 @@ export async function publicOrder(token: string) {
     const items = await db.select({name:orderItems.nameSnapshot,quantity:orderItems.quantity,total:orderItems.lineTotal}).from(orderItems).where(eq(orderItems.orderId,order.id));
     const [payment] = await db
       .select({
-        bankName: bankAccounts.bankName,
-        accountNumber: bankAccounts.accountNumber,
-        accountHolder: bankAccounts.accountHolder,
+        method: payments.method,
+        bankSnapshot: payments.bankSnapshot,
+        qrisSnapshot: payments.qrisSnapshot,
         status: payments.status,
         proofSubmitted: payments.proofObjectKey,
       })
       .from(payments)
-      .innerJoin(bankAccounts, eq(bankAccounts.id, payments.bankAccountId))
       .where(eq(payments.orderId, order.id));
     const [shipment] = await db.select({trackingNumber:shipments.trackingNumber,courier:shipments.courier,service:shipments.service}).from(shipments).where(eq(shipments.orderId,order.id));
     return {
@@ -115,10 +131,17 @@ export async function publicOrder(token: string) {
       shipping:order.shippingCost,
       total:order.grandTotal,
       deadline:order.paymentDueAt,
-      bank:payment ? {
-        bankName: payment.bankName,
-        accountNumber: payment.accountNumber,
-        accountHolder: payment.accountHolder,
+      paymentMethod: payment?.method,
+      bank:payment?.method === 'bank_transfer' && payment.bankSnapshot ? {
+        bankName: payment.bankSnapshot.bankName,
+        accountNumber: payment.bankSnapshot.accountNumber,
+        accountHolder: payment.bankSnapshot.accountHolder,
+        instructions: payment.bankSnapshot.instructions,
+      } : null,
+      qris: payment?.method === 'qris' && payment.qrisSnapshot ? {
+        merchantName: payment.qrisSnapshot.merchantName,
+        imageObjectKey: payment.qrisSnapshot.imageObjectKey,
+        instructions: payment.qrisSnapshot.instructions,
       } : null,
       payment: payment ? {
         status: payment.status,

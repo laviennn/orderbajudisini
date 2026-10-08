@@ -20,6 +20,7 @@ import {
   shippingQuotes,
   storeSettings,
   shipments,
+  qrisSettings,
 } from "@/server/db/schema";
 import { getEnvironment } from "@/server/env";
 import { withStaff } from "@/server/auth/authorize";
@@ -56,7 +57,8 @@ const orderInput = z
     customerId: uuid,
     addressId: uuid,
     shippingQuoteId: uuid,
-    bankAccountId: uuid,
+    paymentMethod: z.enum(["bank_transfer", "qris"]).default("bank_transfer"),
+    bankAccountId: uuid.optional(),
     notes: z.string().trim().max(1000).optional(),
     items: z
       .array(
@@ -75,7 +77,13 @@ const orderInput = z
     (v) =>
       new Set(v.items.map((i) => i.productId)).size === v.items.length &&
       v.items.reduce((s, i) => s + i.quantity, 0) <= 100,
-  );
+  )
+  .refine((v) => {
+    if (v.paymentMethod === "bank_transfer") {
+      return !!v.bankAccountId;
+    }
+    return true;
+  });
 async function databaseNow(tx: Transaction) {
   const result = await tx.execute<{ current_time: string }>(
     sql`select clock_timestamp() as current_time`,
@@ -143,17 +151,33 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
           ),
         )
         .for("share");
-      const [bank] = await tx
-        .select()
-        .from(bankAccounts)
-        .where(
-          and(
-            eq(bankAccounts.id, data.bankAccountId),
-            eq(bankAccounts.active, true),
-          ),
-        )
-        .for("share");
-      if (!address || !bank) throw new AppError("NOT_FOUND");
+      let bank = null;
+      if (data.paymentMethod === "bank_transfer") {
+        const rows = await tx
+          .select()
+          .from(bankAccounts)
+          .where(
+            and(
+              eq(bankAccounts.id, data.bankAccountId!),
+              eq(bankAccounts.active, true),
+            ),
+          )
+          .for("share");
+        bank = rows[0];
+        if (!bank) throw new AppError("NOT_FOUND");
+      }
+      
+      let qris = null;
+      if (data.paymentMethod === "qris") {
+        const rows = await tx
+          .select()
+          .from(qrisSettings)
+          .where(eq(qrisSettings.id, 1))
+          .for("share");
+        qris = rows[0];
+        if (!qris || !qris.active) throw new AppError("NOT_FOUND");
+      }
+      if (!address) throw new AppError("NOT_FOUND");
       const [quote] = await tx
         .select()
         .from(shippingQuotes)
@@ -340,12 +364,19 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
       await reserveLockedProducts(tx, id, data.items, due);
       await tx.insert(payments).values({
         orderId: id,
-        bankAccountId: bank.id,
-        bankSnapshot: {
+        method: data.paymentMethod,
+        bankAccountId: bank ? bank.id : null,
+        bankSnapshot: bank ? {
           bankName: bank.bankName,
           accountNumber: bank.accountNumber,
           accountHolder: bank.accountHolder,
-        },
+          instructions: bank.instructions,
+        } : null,
+        qrisSnapshot: qris ? {
+          merchantName: qris.merchantName,
+          imageObjectKey: qris.imageObjectKey,
+          instructions: qris.instructions,
+        } : null,
         expectedAmount: total,
       });
       await tx

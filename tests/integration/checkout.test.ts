@@ -119,7 +119,8 @@ describe("Checkout Flow Integration", () => {
     expect(choice.reference).toMatch(/^[A-Za-z0-9_-]+$/);
     
     // 2. Submit Checkout
-    const result = await submitCheckout({ reference: choice.reference });
+    const paymentMethodId = preview.payments[0]!.id;
+    const result = await submitCheckout({ reference: choice.reference, paymentMethodId });
     expect(result.publicToken).toMatch(/^[a-f0-9]{64}$/);
     
     // 3. View Public Order
@@ -167,8 +168,9 @@ describe("Checkout Flow Integration", () => {
     
     const choice = preview.choices[0]!;
     
-    const res1 = await submitCheckout({ reference: choice.reference });
-    const res2 = await submitCheckout({ reference: choice.reference });
+    const paymentMethodId = preview.payments[0]!.id;
+    const res1 = await submitCheckout({ reference: choice.reference, paymentMethodId });
+    const res2 = await submitCheckout({ reference: choice.reference, paymentMethodId });
     
     // Should yield exactly the same token
     expect(res1.publicToken).toBe(res2.publicToken);

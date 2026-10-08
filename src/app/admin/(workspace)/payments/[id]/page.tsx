@@ -118,10 +118,17 @@ export default async function PaymentDetailPage(props: {
             <dt>Status</dt>
             <dd><span className={`status-badge status-${payment.status}`}>{payment.status}</span></dd>
           </div>
-          <div>
-            <dt>Bank Tujuan</dt>
-            <dd>{payment.bankSnapshot.bankName} - {payment.bankSnapshot.accountNumber} ({payment.bankSnapshot.accountHolder})</dd>
-          </div>
+          {payment.method === "bank_transfer" && payment.bankSnapshot ? (
+            <div>
+              <dt>Bank Tujuan</dt>
+              <dd>{payment.bankSnapshot.bankName} - {payment.bankSnapshot.accountNumber} ({payment.bankSnapshot.accountHolder})</dd>
+            </div>
+          ) : payment.method === "qris" && payment.qrisSnapshot ? (
+            <div>
+              <dt>Metode</dt>
+              <dd>QRIS {payment.qrisSnapshot.merchantName ? `(${payment.qrisSnapshot.merchantName})` : ''}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Waktu Submit</dt>
             <dd>{payment.submittedAt ? formatDateTime(payment.submittedAt) : 'Belum submit'}</dd>

@@ -130,7 +130,7 @@ export const rajaOngkirStarterProvider: ShippingProvider = {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore single courier failure, others might succeed
       }
     });

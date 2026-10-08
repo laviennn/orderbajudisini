@@ -64,6 +64,20 @@
       "when": 1791449735176,
       "tag": "0008_stormy_earthquake",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791478766758,
+      "tag": "0009_dashing_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791479275789,
+      "tag": "0010_smooth_psynapse",
+      "breakpoints": true
     }
   ]
 }

@@ -57,6 +57,8 @@ export const bankAccounts = pgTable(
     bankName: text("bank_name").notNull(),
     accountNumber: text("account_number").notNull(),
     accountHolder: text("account_holder").notNull(),
+    instructions: text("instructions"),
+    logoObjectKey: text("logo_object_key"),
     active: boolean("active").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     updatedBy: uuid("updated_by").references(() => users.id, {
@@ -68,6 +70,21 @@ export const bankAccounts = pgTable(
   (t) => [
     check("bank_number_valid", sql`${t.accountNumber} ~ '^[0-9]{4,40}$'`),
   ],
+);
+export const qrisSettings = pgTable(
+  "qris_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    merchantName: text("merchant_name"),
+    imageObjectKey: text("image_object_key").notNull(),
+    instructions: text("instructions"),
+    active: boolean("active").notNull().default(false),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("qris_singleton", sql`${t.id} = 1`)],
 );
 export const shippingQuotes = pgTable(
   "shipping_quotes",
@@ -292,15 +309,20 @@ export const payments = pgTable(
       .unique(),
     method: text("method").notNull().default("bank_transfer"),
     bankAccountId: uuid("bank_account_id")
-      .notNull()
       .references(() => bankAccounts.id, { onDelete: "restrict" }),
     bankSnapshot: jsonb("bank_snapshot")
       .$type<{
         bankName: string;
         accountNumber: string;
         accountHolder: string;
-      }>()
-      .notNull(),
+        instructions?: string | null;
+      }>(),
+    qrisSnapshot: jsonb("qris_snapshot")
+      .$type<{
+        merchantName?: string | null;
+        imageObjectKey: string;
+        instructions?: string | null;
+      }>(),
     expectedAmount: amount("expected_amount"),
     status: paymentStatus("status").notNull().default("pending"),
     proofTokenHash: text("proof_token_hash").unique(),
@@ -319,7 +341,7 @@ export const payments = pgTable(
   },
   (t) => [
     moneyCheck("payment_amount_valid", t.expectedAmount),
-    check("payment_method_valid", sql`${t.method} = 'bank_transfer'`),
+    check("payment_method_valid", sql`${t.method} in ('bank_transfer', 'qris')`),
     check(
       "payment_proof_private",
       sql`${t.proofObjectKey} is null or (${t.proofObjectKey} like 'payment-proof/%' and ${t.proofObjectKey} not like '%..%')`,

@@ -53,6 +53,7 @@ export const auditActions = [
   "promotion.updated",
   "product.eligibility_changed",
   "review.moderated",
+  "qris.updated",
 ] as const;
 export async function writeAudit(
   db: Executor,

@@ -793,6 +793,20 @@ html:has(.admin-frame) body {
 }
 .admin-nav a:hover {
   background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+}
+.nav-group {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  padding: 0 0.75rem;
+}
+.nav-group:first-of-type {
+  margin-top: 0;
 }
 .admin-content {
   padding: 2rem;
