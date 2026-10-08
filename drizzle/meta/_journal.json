@@ -78,6 +78,13 @@
       "when": 1791479275789,
       "tag": "0010_smooth_psynapse",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791481102450,
+      "tag": "0011_thick_lord_hawal",
+      "breakpoints": true
     }
   ]
 }

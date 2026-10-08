@@ -12,6 +12,7 @@ import { createShippingQuotes } from "./shipping-quotes";
 import { createReservedOrder, hashToken } from "./orders";
 import { destinationSchema } from "@/server/shipping/contract";
 import { getShippingProvider } from "@/server/shipping/provider";
+import { getStorage } from "@/server/storage/r2";
 
 export function normalizePhone(value: string) {
   let phone = value.replace(/[\s().-]/g, "");
@@ -55,7 +56,7 @@ export async function prepareCheckout(input: unknown) {
   return databaseOperation(async () => {
     const data = prepareInput.parse(input);
     const cart = await validateCart({ids:data.ids});
-    if (!cart.pricing || cart.items.some(i=>!i.available)) return {cart, choices:[]};
+    if (!cart.pricing || cart.items.some(i=>!i.available)) return {cart, choices:[], payments: []};
     const provider = getShippingProvider();
     const db = getDatabase();
     
@@ -65,7 +66,7 @@ export async function prepareCheckout(input: unknown) {
       db.select().from(bankAccounts).where(eq(bankAccounts.active,true)).orderBy(asc(bankAccounts.sortOrder),asc(bankAccounts.id)),
     ]);
     const availablePayments = [];
-    if (qris[0]?.active) availablePayments.push({ id: "qris", name: "QRIS", type: "qris" });
+    if (qris[0]?.active && qris[0]?.imageObjectKey) availablePayments.push({ id: "qris", name: "QRIS", type: "qris" });
     banks.forEach(b => availablePayments.push({ id: b.id, name: `${b.bankName} - ${b.accountNumber}`, type: "bank_transfer" }));
     
     if (availablePayments.length === 0) throw new AppError("NOT_CONFIGURED");
@@ -93,7 +94,7 @@ export async function submitCheckout(input: unknown) {
   return databaseOperation(async()=>{
     const {reference, paymentMethodId} = z.object({
       reference:z.string().min(50).max(20000),
-      paymentMethodId: z.string()
+      paymentMethodId: z.string().trim().min(1)
     }).strict().parse(input);
     const {expires: _expires,merchandiseTotal,...request} = open(reference);
     void _expires;
@@ -141,6 +142,13 @@ export async function publicOrder(token: string) {
       qris: payment?.method === 'qris' && payment.qrisSnapshot ? {
         merchantName: payment.qrisSnapshot.merchantName,
         imageObjectKey: payment.qrisSnapshot.imageObjectKey,
+        imageUrl: (() => {
+          try {
+            return payment.qrisSnapshot.imageObjectKey ? getStorage().publicMediaUrl(payment.qrisSnapshot.imageObjectKey) : null;
+          } catch {
+            return null;
+          }
+        })(),
         instructions: payment.qrisSnapshot.instructions,
       } : null,
       payment: payment ? {

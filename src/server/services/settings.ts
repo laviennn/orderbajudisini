@@ -5,8 +5,9 @@ import { AppError } from "@/lib/errors";
 import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
 import { withStaff } from "@/server/auth/authorize";
-import { bankAccounts, seoSettings, storeSettings, qrisSettings } from "@/server/db/schema";
+import { bankAccounts, payments, seoSettings, storeSettings, qrisSettings } from "@/server/db/schema";
 import { destinationSchema } from "@/server/shipping/contract";
+import { assertObjectKey } from "@/server/storage/policy";
 import { writeAudit } from "./audit";
 export const seoInput = z
   .object({
@@ -108,6 +109,46 @@ export async function saveBankAccount(input: unknown) {
     return row;
   });
 }
+export async function deleteBankAccount(id: string) {
+  return withStaff("settings.manage", async (tx, actor) => {
+    z.uuid().parse(id);
+    const referenced = await tx
+      .select({ id: payments.id })
+      .from(payments)
+      .where(eq(payments.bankAccountId, id))
+      .limit(1);
+
+    if (referenced.length > 0) {
+      const [deactivated] = await tx
+        .update(bankAccounts)
+        .set({ active: false, updatedBy: actor.id, updatedAt: new Date() })
+        .where(eq(bankAccounts.id, id))
+        .returning({ id: bankAccounts.id });
+      if (!deactivated) throw new AppError("NOT_FOUND");
+      await writeAudit(tx, {
+        actorId: actor.id,
+        action: "bank.updated",
+        entityType: "bank_account",
+        entityId: deactivated.id,
+        metadata: { changedFields: ["active"] },
+      });
+      return deactivated;
+    }
+
+    const [deleted] = await tx
+      .delete(bankAccounts)
+      .where(eq(bankAccounts.id, id))
+      .returning({ id: bankAccounts.id });
+    if (!deleted) throw new AppError("NOT_FOUND");
+    await writeAudit(tx, {
+      actorId: actor.id,
+      action: "bank.deleted",
+      entityType: "bank_account",
+      entityId: deleted.id,
+    });
+    return deleted;
+  });
+}
 export async function setStoreSettings(input: unknown) {
   return withStaff("settings.manage", async (tx, actor) => {
     const data = z
@@ -155,25 +196,42 @@ export async function saveQrisSettings(input: unknown) {
     const data = z
       .object({
         merchantName: z.string().trim().max(200).nullable().optional(),
-        imageObjectKey: z.string().trim().min(1),
+        imageObjectKey: z.string().trim().nullable().optional(),
         instructions: z.string().trim().max(2000).nullable().optional(),
         active: z.boolean(),
       })
       .strict()
+      .refine(
+        (val) => !val.active || (Boolean(val.imageObjectKey) && val.imageObjectKey!.length > 0),
+        { message: "Gambar QRIS wajib diunggah sebelum mengaktifkan QRIS." }
+      )
       .parse(input);
+
+    const imageKey = data.imageObjectKey || null;
+    if (imageKey) {
+      assertObjectKey(imageKey, "site-media");
+    }
+
+    const payload = {
+      merchantName: data.merchantName || null,
+      imageObjectKey: imageKey,
+      instructions: data.instructions || null,
+      active: data.active,
+    };
+
     await tx
       .insert(qrisSettings)
-      .values({ id: 1, ...data, updatedBy: actor.id })
+      .values({ id: 1, ...payload, updatedBy: actor.id })
       .onConflictDoUpdate({
         target: qrisSettings.id,
-        set: { ...data, updatedBy: actor.id, updatedAt: new Date() },
+        set: { ...payload, updatedBy: actor.id, updatedAt: new Date() },
       });
     await writeAudit(tx, {
       actorId: actor.id,
       action: "qris.updated",
       entityType: "qris_settings",
       entityId: "1",
-      metadata: { changedFields: Object.keys(data) },
+      metadata: { changedFields: Object.keys(payload) },
     });
     return { updated: true };
   });

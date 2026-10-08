@@ -50,6 +50,7 @@ export const auditActions = [
   "seo.updated",
   "store.updated",
   "bank.updated",
+  "bank.deleted",
   "promotion.updated",
   "product.eligibility_changed",
   "review.moderated",

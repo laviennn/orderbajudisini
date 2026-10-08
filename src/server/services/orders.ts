@@ -175,7 +175,7 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
           .where(eq(qrisSettings.id, 1))
           .for("share");
         qris = rows[0];
-        if (!qris || !qris.active) throw new AppError("NOT_FOUND");
+        if (!qris || !qris.active || !qris.imageObjectKey) throw new AppError("NOT_FOUND");
       }
       if (!address) throw new AppError("NOT_FOUND");
       const [quote] = await tx
@@ -374,7 +374,7 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
         } : null,
         qrisSnapshot: qris ? {
           merchantName: qris.merchantName,
-          imageObjectKey: qris.imageObjectKey,
+          imageObjectKey: qris.imageObjectKey!,
           instructions: qris.instructions,
         } : null,
         expectedAmount: total,

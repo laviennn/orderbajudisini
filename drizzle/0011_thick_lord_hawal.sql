@@ -1,0 +1,2 @@
+ALTER TABLE "qris_settings" ALTER COLUMN "image_object_key" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "qris_settings" ADD CONSTRAINT "qris_active_requires_image" CHECK ("qris_settings"."active" = false or "qris_settings"."image_object_key" is not null);

@@ -76,7 +76,7 @@ export const qrisSettings = pgTable(
   {
     id: integer("id").primaryKey().default(1),
     merchantName: text("merchant_name"),
-    imageObjectKey: text("image_object_key").notNull(),
+    imageObjectKey: text("image_object_key"),
     instructions: text("instructions"),
     active: boolean("active").notNull().default(false),
     updatedBy: uuid("updated_by").references(() => users.id, {
@@ -84,7 +84,13 @@ export const qrisSettings = pgTable(
     }),
     updatedAt: updatedAt(),
   },
-  (t) => [check("qris_singleton", sql`${t.id} = 1`)],
+  (t) => [
+    check("qris_singleton", sql`${t.id} = 1`),
+    check(
+      "qris_active_requires_image",
+      sql`${t.active} = false or ${t.imageObjectKey} is not null`,
+    ),
+  ],
 );
 export const shippingQuotes = pgTable(
   "shipping_quotes",

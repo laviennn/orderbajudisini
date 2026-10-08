@@ -73,10 +73,16 @@ export default async function OrderConfirmationPage({
               <p>Silakan lakukan scan QRIS berikut:</p>
               <div style={{ padding: "1rem", backgroundColor: "var(--surface-background)", borderRadius: "var(--radius-control)", marginTop: "0.5rem", textAlign: "center" }}>
                 {order.qris.merchantName && <strong>{order.qris.merchantName}</strong>}
-                <div style={{ marginTop: "1rem" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/media/${order.qris.imageObjectKey}`} alt="QRIS" style={{ maxWidth: "100%", maxHeight: "300px" }} />
-                </div>
+                {order.qris.imageUrl && (
+                  <div style={{ marginTop: "1rem" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={order.qris.imageUrl}
+                      alt={order.qris.merchantName || "QRIS"}
+                      style={{ maxWidth: "100%", maxHeight: "300px", objectFit: "contain", margin: "0 auto", display: "block" }}
+                    />
+                  </div>
+                )}
               </div>
               {order.qris.instructions && (
                 <p style={{ marginTop: "1rem" }}>{order.qris.instructions}</p>

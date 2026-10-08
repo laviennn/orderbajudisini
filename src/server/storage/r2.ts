@@ -215,7 +215,11 @@ export function getStorage(): StorageAdapter {
       return { url, expiresIn: signedLifetimeSeconds };
     },
     publicMediaUrl(key) {
-      assertObjectKey(key, "product");
+      if (key.startsWith("site-media/")) {
+        assertObjectKey(key, "site-media");
+      } else {
+        assertObjectKey(key, "product");
+      }
       return `${baseUrl.replace(/\/$/, "")}/${key}`;
     },
   };

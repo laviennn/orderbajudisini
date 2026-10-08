@@ -37,6 +37,9 @@ describe("R2 boundary", () => {
     expect(storage.publicMediaUrl(`product/${id}.jpg`)).toBe(
       `https://media.example.test/product/${id}.jpg`,
     );
+    expect(storage.publicMediaUrl(`site-media/${id}.png`)).toBe(
+      `https://media.example.test/site-media/${id}.png`,
+    );
   });
   it("signs uploads for the correct bucket with short expiry and bounded metadata", async () => {
     for (const purpose of ["product", "payment-proof"] as const) {

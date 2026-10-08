@@ -1,6 +1,8 @@
 import { requirePermission } from "@/server/auth/authorize";
 import { listBankAccounts, getQrisSettings } from "@/server/services/settings";
-import { submitBankAccountAction, submitQrisSettingsAction } from "./actions";
+import { getStorage } from "@/server/storage/r2";
+import { QrisEditor } from "@/features/admin/QrisEditor";
+import { submitBankAccountAction, deleteBankAccountAction } from "./actions";
 
 export const metadata = { title: "Metode Pembayaran - Admin" };
 
@@ -11,103 +13,224 @@ export default async function PaymentMethodsPage() {
     getQrisSettings(),
   ]);
 
-  return (
-    <main id="main-content">
-      <h1>Metode Pembayaran</h1>
-      <p>Kelola rekening bank manual dan QRIS Statis.</p>
+  let qrisImageUrl: string | null = null;
+  if (qrisSettings?.imageObjectKey) {
+    try {
+      qrisImageUrl = getStorage().publicMediaUrl(qrisSettings.imageObjectKey);
+    } catch {
+      qrisImageUrl = null;
+    }
+  }
 
-      <section style={{ marginTop: "2rem" }}>
-        <h2>Bank Transfer</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {bankAccounts.map(bank => (
-            <div key={bank.id} style={{ border: "1px solid var(--border)", padding: "1rem", borderRadius: "var(--radius-sm)" }}>
-              <form action={submitBankAccountAction} style={{ display: "grid", gap: "1rem" }}>
+  return (
+    <div className="admin-content">
+      <div className="section-heading">
+        <div>
+          <h1>Metode Pembayaran</h1>
+          <p className="small-note">
+            Kelola rekening transfer bank manual dan QRIS Statis untuk proses checkout pelanggan.
+          </p>
+        </div>
+      </div>
+
+      <section style={{ marginBottom: "3rem" }}>
+        <h2 style={{ marginBottom: "1rem" }}>Rekening Bank Transfer</h2>
+        <div style={{ display: "grid", gap: "1.5rem", maxWidth: "800px" }}>
+          {bankAccounts.map((bank) => (
+            <div
+              key={bank.id}
+              className="admin-editor"
+              style={{
+                border: "1px solid var(--border)",
+                padding: "1.5rem",
+                borderRadius: "var(--radius-control)",
+                backgroundColor: "var(--surface)",
+              }}
+            >
+              <form action={submitBankAccountAction}>
                 <input type="hidden" name="id" value={bank.id} />
-                <div className="field-group">
-                  <label>Nama Bank</label>
-                  <input type="text" name="bankName" defaultValue={bank.bankName} required />
-                </div>
-                <div className="field-group">
-                  <label>Nomor Rekening</label>
-                  <input type="text" name="accountNumber" defaultValue={bank.accountNumber} required />
-                </div>
-                <div className="field-group">
-                  <label>Nama Pemilik</label>
-                  <input type="text" name="accountHolder" defaultValue={bank.accountHolder} required />
-                </div>
-                <div className="field-group">
-                  <label>Instruksi Pembayaran</label>
-                  <textarea name="instructions" defaultValue={bank.instructions || ""} rows={3} />
-                </div>
-                <div className="field-group">
-                  <label>Urutan (Sort Order)</label>
-                  <input type="number" name="sortOrder" defaultValue={bank.sortOrder} required />
-                </div>
-                <label className="checkbox-label">
-                  <input type="checkbox" name="active" value="true" defaultChecked={bank.active} />
-                  <span>Aktif</span>
-                </label>
-                <div><button className="primary" type="submit">Simpan Bank</button></div>
+                <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                  <legend style={{ fontWeight: 600, fontSize: "1.1rem", marginBottom: "1rem" }}>
+                    {bank.bankName} — {bank.accountNumber}
+                  </legend>
+                  <div className="editor-grid">
+                    <label>
+                      Nama Bank
+                      <input
+                        type="text"
+                        name="bankName"
+                        defaultValue={bank.bankName}
+                        required
+                        maxLength={120}
+                      />
+                    </label>
+                    <label>
+                      Nomor Rekening
+                      <input
+                        type="text"
+                        name="accountNumber"
+                        defaultValue={bank.accountNumber}
+                        required
+                        pattern="^[0-9]{4,40}$"
+                        title="Nomor rekening berupa 4-40 digit angka"
+                      />
+                    </label>
+                  </div>
+                  <div className="editor-grid">
+                    <label>
+                      Nama Pemilik Rekening
+                      <input
+                        type="text"
+                        name="accountHolder"
+                        defaultValue={bank.accountHolder}
+                        required
+                        maxLength={200}
+                      />
+                    </label>
+                    <label>
+                      Urutan Tampilan
+                      <input
+                        type="number"
+                        name="sortOrder"
+                        defaultValue={bank.sortOrder}
+                        required
+                        min={0}
+                        max={1000}
+                      />
+                    </label>
+                  </div>
+                  <label style={{ display: "block", marginBottom: "1rem" }}>
+                    Instruksi Pembayaran (Opsional)
+                    <textarea
+                      name="instructions"
+                      defaultValue={bank.instructions || ""}
+                      rows={2}
+                      maxLength={2000}
+                    />
+                  </label>
+                  <label className="checkbox-label" style={{ marginBottom: "1.25rem" }}>
+                    <input
+                      type="checkbox"
+                      name="active"
+                      value="true"
+                      defaultChecked={bank.active}
+                    />
+                    <span>Aktifkan rekening ini di checkout</span>
+                  </label>
+                  <div className="editor-actions" style={{ marginBottom: 0 }}>
+                    <button type="submit" className="primary-action">
+                      Simpan Perubahan
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+              <form action={deleteBankAccountAction} style={{ marginTop: "0.75rem" }}>
+                <input type="hidden" name="id" value={bank.id} />
+                <button
+                  type="submit"
+                  className="text-link"
+                  style={{ color: "var(--danger)" }}
+                  onClick={(e) => {
+                    if (!confirm("Hapus rekening bank ini?")) {
+                      e.preventDefault();
+                    }
+                  }}
+                >
+                  Hapus Rekening
+                </button>
               </form>
             </div>
           ))}
-        </div>
 
-        <div style={{ marginTop: "2rem", border: "1px dashed var(--border)", padding: "1rem", borderRadius: "var(--radius-sm)" }}>
-          <h3>Tambah Bank Baru</h3>
-          <form action={submitBankAccountAction} style={{ display: "grid", gap: "1rem" }}>
-            <div className="field-group">
-              <label>Nama Bank</label>
-              <input type="text" name="bankName" required />
-            </div>
-            <div className="field-group">
-              <label>Nomor Rekening</label>
-              <input type="text" name="accountNumber" required />
-            </div>
-            <div className="field-group">
-              <label>Nama Pemilik</label>
-              <input type="text" name="accountHolder" required />
-            </div>
-            <div className="field-group">
-              <label>Instruksi Pembayaran</label>
-              <textarea name="instructions" rows={3} />
-            </div>
-            <div className="field-group">
-              <label>Urutan</label>
-              <input type="number" name="sortOrder" defaultValue="0" required />
-            </div>
-            <label className="checkbox-label">
-              <input type="checkbox" name="active" value="true" />
-              <span>Aktif</span>
-            </label>
-            <div><button className="primary" type="submit">Tambah Bank</button></div>
-          </form>
+          {/* Form Tambah Bank Baru */}
+          <div
+            className="admin-editor"
+            style={{
+              border: "1px dashed var(--border)",
+              padding: "1.5rem",
+              borderRadius: "var(--radius-control)",
+              backgroundColor: "var(--surface)",
+            }}
+          >
+            <form action={submitBankAccountAction}>
+              <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend style={{ fontWeight: 600, fontSize: "1.1rem", marginBottom: "1rem" }}>
+                  Tambah Rekening Baru
+                </legend>
+                <div className="editor-grid">
+                  <label>
+                    Nama Bank
+                    <input
+                      type="text"
+                      name="bankName"
+                      placeholder="Contoh: BCA / Mandiri / BNI"
+                      required
+                      maxLength={120}
+                    />
+                  </label>
+                  <label>
+                    Nomor Rekening
+                    <input
+                      type="text"
+                      name="accountNumber"
+                      placeholder="Contoh: 1234567890"
+                      required
+                      pattern="^[0-9]{4,40}$"
+                      title="Nomor rekening berupa 4-40 digit angka"
+                    />
+                  </label>
+                </div>
+                <div className="editor-grid">
+                  <label>
+                    Nama Pemilik Rekening
+                    <input
+                      type="text"
+                      name="accountHolder"
+                      placeholder="Contoh: PT Thrift Indonesia"
+                      required
+                      maxLength={200}
+                    />
+                  </label>
+                  <label>
+                    Urutan Tampilan
+                    <input
+                      type="number"
+                      name="sortOrder"
+                      defaultValue="0"
+                      required
+                      min={0}
+                      max={1000}
+                    />
+                  </label>
+                </div>
+                <label style={{ display: "block", marginBottom: "1rem" }}>
+                  Instruksi Pembayaran (Opsional)
+                  <textarea
+                    name="instructions"
+                    placeholder="Contoh: Masukkan berita transfer dengan nomor pesanan Anda."
+                    rows={2}
+                    maxLength={2000}
+                  />
+                </label>
+                <label className="checkbox-label" style={{ marginBottom: "1.25rem" }}>
+                  <input type="checkbox" name="active" value="true" defaultChecked />
+                  <span>Aktifkan langsung</span>
+                </label>
+                <div className="editor-actions" style={{ marginBottom: 0 }}>
+                  <button type="submit" className="secondary-action">
+                    Tambah Rekening Bank
+                  </button>
+                </div>
+              </fieldset>
+            </form>
+          </div>
         </div>
       </section>
 
-      <section style={{ marginTop: "3rem" }}>
-        <h2>QRIS Statis</h2>
-        <form action={submitQrisSettingsAction} style={{ display: "grid", gap: "1rem", border: "1px solid var(--border)", padding: "1rem", borderRadius: "var(--radius-sm)" }}>
-          <div className="field-group">
-            <label>Nama Merchant (Opsional)</label>
-            <input type="text" name="merchantName" defaultValue={qrisSettings?.merchantName || ""} />
-          </div>
-          <div className="field-group">
-            <label>Object Key Gambar QRIS (R2 Public Bucket)</label>
-            <input type="text" name="imageObjectKey" defaultValue={qrisSettings?.imageObjectKey || ""} required />
-            <p className="help-text">Unggah gambar QRIS ke R2 dan masukkan nama filenya (contoh: qris-toko.png).</p>
-          </div>
-          <div className="field-group">
-            <label>Instruksi Pembayaran</label>
-            <textarea name="instructions" defaultValue={qrisSettings?.instructions || ""} rows={3} />
-          </div>
-          <label className="checkbox-label">
-            <input type="checkbox" name="active" value="true" defaultChecked={qrisSettings?.active} />
-            <span>Aktifkan QRIS</span>
-          </label>
-          <div><button className="primary" type="submit">Simpan QRIS</button></div>
-        </form>
+      <section style={{ marginBottom: "3rem" }}>
+        <h2 style={{ marginBottom: "1rem" }}>QRIS Statis</h2>
+        <QrisEditor initialSettings={qrisSettings} initialImageUrl={qrisImageUrl} />
       </section>
-    </main>
+    </div>
   );
 }
