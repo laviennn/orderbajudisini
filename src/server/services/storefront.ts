@@ -62,12 +62,24 @@ export const readStore = cache(
       databaseOperation(async () => {
         const [[store], [seo]] = await Promise.all([
           getDatabase()
-            .select({ storeName: storeSettings.storeName })
+            .select({
+              storeName: storeSettings.storeName,
+              description: storeSettings.description,
+              logoObjectKey: storeSettings.logoObjectKey,
+              faviconObjectKey: storeSettings.faviconObjectKey,
+              footerText: storeSettings.footerText,
+              supportEmail: storeSettings.supportEmail,
+              whatsappNumber: storeSettings.whatsappNumber,
+              displayAddress: storeSettings.displayAddress,
+              socialLinks: storeSettings.socialLinks,
+            })
             .from(storeSettings)
             .limit(1),
           getDatabase()
             .select({
               siteTitle: seoSettings.siteTitle,
+              indexingEnabled: seoSettings.indexingEnabled,
+              pages: seoSettings.pages,
               titleTemplate: seoSettings.titleTemplate,
               defaultDescription: seoSettings.defaultDescription,
               defaultOgImage: seoSettings.defaultOgImage,
@@ -77,7 +89,21 @@ export const readStore = cache(
             .from(seoSettings)
             .limit(1),
         ]);
-        return { name: store?.storeName || site.name, seo: seo ?? null };
+        return {
+          name: store?.storeName || site.name,
+          seo: seo ?? null,
+          details: store
+            ? {
+                ...store,
+                logoUrl: store.logoObjectKey
+                  ? getStorage().publicMediaUrl(store.logoObjectKey)
+                  : null,
+                faviconUrl: store.faviconObjectKey
+                  ? getStorage().publicMediaUrl(store.faviconObjectKey)
+                  : null,
+              }
+            : null,
+        };
       }),
     ["public-store-v1"],
     options,
@@ -88,7 +114,7 @@ export async function storeForShell() {
     return await readStore();
   } catch {
     console.error({ event: "storefront_configuration_unavailable" });
-    return { name: site.name, seo: null };
+    return { name: site.name, seo: null, details: null };
   }
 }
 export function safeContentHref(value: string | null) {

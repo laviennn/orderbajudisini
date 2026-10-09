@@ -26,7 +26,7 @@ export default async function Dashboard() {
   ] = await Promise.all([
     catalogDashboard(),
     adminProductList({}),
-    getAdminOrders({ status: "submitted", pageSize: 5 }),
+    getAdminOrders({ status: "payment_submitted", pageSize: 5 }),
     getAdminOrders({ status: "processing", pageSize: 5 }),
     getAdminOrders({ pageSize: 5 }),
   ]);

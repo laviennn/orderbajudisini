@@ -5,8 +5,9 @@ export default defineConfig({
   fullyParallel: true,
   retries: 0,
   projects: [
-    { name: "storefront", testIgnore: "admin.spec.ts" },
+    { name: "storefront", testIgnore: ["admin.spec.ts", "batch-b.spec.ts"] },
     { name: "admin", testMatch: "admin.spec.ts", dependencies: ["storefront"] },
+    { name: "batch-b", testMatch: "batch-b.spec.ts", dependencies: ["admin"] },
   ],
   reporter: "list",
   use: {

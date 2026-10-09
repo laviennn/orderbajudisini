@@ -35,6 +35,7 @@ export interface StorageAdapter {
   privateProofUrl(key: string): Promise<{ url: string; expiresIn: number }>;
   publicMediaUrl(key: string): string;
   readProductSource(key: string, maximumBytes: number): Promise<Buffer>;
+  readSiteMedia(key: string, maximumBytes: number): Promise<Buffer>;
   readPaymentProof(key: string, maximumBytes: number): Promise<Buffer>;
   writeProductVariant(key: string, body: Buffer): Promise<void>;
   deleteObject(purpose: StoragePurpose, key: string): Promise<void>;
@@ -71,17 +72,23 @@ export function getStorage(): StorageAdapter {
   ) {
     throw new AppError("NOT_CONFIGURED");
   }
+  const testStorageUrl =
+    process.env.NODE_ENV !== "production"
+      ? process.env.TEST_STORAGE_URL
+      : undefined;
   const client = new S3Client({
     region: "auto",
-    endpoint: process.env.TEST_STORAGE_URL || `https://${account}.r2.cloudflarestorage.com`,
-    forcePathStyle: !!process.env.TEST_STORAGE_URL,
+    endpoint: testStorageUrl || `https://${account}.r2.cloudflarestorage.com`,
+    forcePathStyle: !!testStorageUrl,
     credentials: { accessKeyId, secretAccessKey },
     requestChecksumCalculation: "WHEN_REQUIRED",
     maxAttempts: 2,
     requestHandler: { connectionTimeout: 5000, requestTimeout: 15000 },
   });
   const bucket = (purpose: StoragePurpose) =>
-    (purpose === "product" || purpose === "site-media") ? publicBucket : privateBucket;
+    purpose === "product" || purpose === "site-media"
+      ? publicBucket
+      : privateBucket;
 
   async function providerCall<T>(operation: () => Promise<T>): Promise<T> {
     try {
@@ -99,6 +106,28 @@ export function getStorage(): StorageAdapter {
       return providerCall(async () => {
         const object = await client.send(
           new GetObjectCommand({ Bucket: privateBucket, Key: key }),
+        );
+        if (
+          !object.Body ||
+          !object.ContentLength ||
+          object.ContentLength > maximumBytes
+        )
+          throw new AppError("VALIDATION_ERROR");
+        const chunks: Uint8Array[] = [];
+        let length = 0;
+        for await (const chunk of object.Body as AsyncIterable<Uint8Array>) {
+          length += chunk.byteLength;
+          if (length > maximumBytes) throw new AppError("VALIDATION_ERROR");
+          chunks.push(chunk);
+        }
+        return Buffer.concat(chunks);
+      });
+    },
+    async readSiteMedia(key, maximumBytes) {
+      assertObjectKey(key, "site-media");
+      return providerCall(async () => {
+        const object = await client.send(
+          new GetObjectCommand({ Bucket: publicBucket, Key: key }),
         );
         if (
           !object.Body ||

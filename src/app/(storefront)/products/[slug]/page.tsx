@@ -7,7 +7,7 @@ import {
   readReviewSummary,
   storeForShell,
 } from "@/server/services/storefront";
-import { absoluteUrl, jsonLd, pageMetadata } from "@/lib/seo";
+import { absoluteUrl, jsonLd, pageMetadata, seoTitle } from "@/lib/seo";
 import { availabilityLabel } from "@/lib/catalog";
 import { formatIdr } from "@/lib/domain/money";
 import {
@@ -27,10 +27,12 @@ export async function generateMetadata({ params }: Props) {
   if (!p) return {};
   const store = await storeForShell();
   return pageMetadata(
-    p.seoTitle || `${p.name} | ${store.name}`,
+    p.seoTitle || seoTitle(p.name, store.name, store.seo),
     p.seoDescription || p.shortDescription || p.description.slice(0, 160),
     `/products/${p.slug}`,
     p.images[0]?.url,
+    false,
+    store.seo,
   );
 }
 export default async function Product({ params, searchParams }: Props) {

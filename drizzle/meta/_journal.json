@@ -85,6 +85,20 @@
       "when": 1791481102450,
       "tag": "0011_thick_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791483115857,
+      "tag": "0012_batch_b_seo",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791483411895,
+      "tag": "0013_batch_b_store",
+      "breakpoints": true
     }
   ]
 }

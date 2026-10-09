@@ -80,3 +80,25 @@ describe("R2 boundary", () => {
     );
   });
 });
+
+it("ignores TEST_STORAGE_URL in production when signing R2 uploads", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  vi.stubEnv("TEST_STORAGE_URL", "https://attacker.example.invalid");
+  vi.stubEnv("R2_ACCOUNT_ID", "a".repeat(32));
+  vi.stubEnv("R2_ACCESS_KEY_ID", "TEST");
+  vi.stubEnv("R2_SECRET_ACCESS_KEY", "TEST");
+  vi.stubEnv("R2_PUBLIC_BUCKET", "test-public");
+  vi.stubEnv("R2_PRIVATE_BUCKET", "test-private");
+  vi.stubEnv("R2_PUBLIC_BASE_URL", "https://media.example.invalid");
+  try {
+    const signed = await getStorage().createUpload({
+      purpose: "site-media",
+      mime: "image/png",
+      bytes: 100,
+    });
+    expect(new URL(signed.url).hostname).toContain("r2.cloudflarestorage.com");
+    expect(signed.url).not.toContain("attacker");
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

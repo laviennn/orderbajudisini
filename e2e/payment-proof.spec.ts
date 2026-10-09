@@ -1,12 +1,46 @@
 import { test, expect } from "@playwright/test";
-import path from "node:path";
-import fs from "node:fs/promises";
-import os from "node:os";
+import sharp from "sharp";
 
 test.describe("Payment Proof Integration", () => {
   test("allows user to upload payment proof after checkout", async ({
     page,
+    context,
+    request,
   }) => {
+    const origin = "http://127.0.0.1:3100";
+    await context.route(
+      "https://*.r2.cloudflarestorage.com/**",
+      async (route) => {
+        const req = route.request();
+        const url = new URL(req.url());
+        if (req.method() === "OPTIONS") {
+          await route.fulfill({
+            status: 204,
+            headers: {
+              "Access-Control-Allow-Origin": origin,
+              "Access-Control-Allow-Methods": "PUT",
+              "Access-Control-Allow-Headers": "content-type",
+            },
+          });
+          return;
+        }
+        const key = url.hostname.startsWith("test-private.")
+          ? `test-private${url.pathname}`
+          : url.pathname.slice(1);
+        expect(key).toMatch(/^test-private\/payment-proof\//);
+        const response = await request.put(
+          `http://127.0.0.1:3101/${encodeURIComponent(key)}`,
+          {
+            data: req.postDataBuffer()!,
+            headers: { "Content-Type": req.headers()["content-type"]! },
+          },
+        );
+        await route.fulfill({
+          status: response.status(),
+          headers: { "Access-Control-Allow-Origin": origin },
+        });
+      },
+    );
     // 1. Create an order via checkout
     await page.goto("/products/test-kemeja-24");
 
@@ -39,17 +73,17 @@ test.describe("Payment Proof Integration", () => {
     await expect(page.getByText(/Menunggu Pembayaran/i)).toBeVisible();
 
     // 2. Upload payment proof
-    const fakeImageBuffer = Buffer.alloc(100);
-    fakeImageBuffer[0] = 0xff;
-    fakeImageBuffer[1] = 0xd8;
-    fakeImageBuffer[2] = 0xff;
-
-    const tmpFile = path.join(os.tmpdir(), "test-proof.jpg");
-    await fs.writeFile(tmpFile, fakeImageBuffer);
-
-    // Provide file to input
+    const bytes = await sharp({
+      create: { width: 80, height: 120, channels: 3, background: "white" },
+    })
+      .jpeg()
+      .toBuffer();
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(tmpFile);
+    await fileInput.setInputFiles({
+      name: "test-proof.jpg",
+      mimeType: "image/jpeg",
+      buffer: bytes,
+    });
 
     // Wait for the UI to recognize it
     await expect(
