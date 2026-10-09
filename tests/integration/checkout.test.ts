@@ -14,13 +14,17 @@ vi.mock("@/server/auth", () => ({
   authenticationEnabled: () => false,
 }));
 
-import { prepareCheckout, submitCheckout, publicOrder } from "@/server/services/checkout";
+import {
+  prepareCheckout,
+  submitCheckout,
+  publicOrder,
+} from "@/server/services/checkout";
 
 beforeAll(async () => {
   database = await startTestDatabase();
   vi.stubEnv("SHIPPING_PROVIDER", "test");
   vi.stubEnv("AUTH_SECRET", "TEST-only-checkout-secret-".repeat(2));
-  
+
   const testOrigin = {
     province: "TEST",
     city: "TEST",
@@ -30,24 +34,20 @@ beforeAll(async () => {
     providerDestinationId: null,
   };
 
-  await database.db
-    .insert(s.storeSettings)
-    .values({
-      id: 1,
-      storeName: "TEST ONLY",
-      shippingOrigin: testOrigin,
-      reservationMinutes: 30,
-    });
-    
-  await database.db
-    .insert(s.bankAccounts)
-    .values({
-      bankName: "TEST BANK",
-      accountNumber: "1234567890",
-      accountHolder: "TEST HOLDER",
-      active: true,
-      sortOrder: 1,
-    });
+  await database.db.insert(s.storeSettings).values({
+    id: 1,
+    storeName: "TEST ONLY",
+    shippingOrigin: testOrigin,
+    reservationMinutes: 30,
+  });
+
+  await database.db.insert(s.bankAccounts).values({
+    bankName: "TEST BANK",
+    accountNumber: "1234567890",
+    accountHolder: "TEST HOLDER",
+    active: true,
+    sortOrder: 1,
+  });
 });
 
 afterAll(async () => {
@@ -88,7 +88,7 @@ async function fixture(prices = [45000]) {
 describe("Checkout Flow Integration", () => {
   it("processes a full checkout flow end-to-end", async () => {
     const { products } = await fixture([45000]);
-    
+
     // 1. Prepare Checkout
     const prepareData = {
       ids: [products[0]!.id],
@@ -104,54 +104,63 @@ describe("Checkout Flow Integration", () => {
         subdistrict: "Pendrikan Kidul",
         postalCode: "50131",
         notes: "Tolong bungkus rapi",
-      }
+      },
     };
 
     const preview = await prepareCheckout(prepareData);
-    
+
     expect(preview.cart.items).toHaveLength(1);
     expect(preview.choices.length).toBeGreaterThan(0);
-    
+
     const choice = preview.choices[0]!;
     expect(choice.courier).toBeDefined();
     expect(choice.service).toBeDefined();
     expect(choice.cost).toBeGreaterThan(0);
     expect(choice.reference).toMatch(/^[A-Za-z0-9_-]+$/);
-    
+
     // 2. Submit Checkout
     const paymentMethodId = preview.payments[0]!.id;
-    const result = await submitCheckout({ reference: choice.reference, paymentMethodId });
+    const result = await submitCheckout({
+      reference: choice.reference,
+      paymentMethodId,
+    });
     expect(result.publicToken).toMatch(/^[a-f0-9]{64}$/);
-    
+
     // 3. View Public Order
     const order = await publicOrder(result.publicToken);
     expect(order).not.toBeNull();
     expect(order!.status).toBe("pending_payment");
     expect(order!.items).toHaveLength(1);
     expect(order!.items[0]!.name).toBe(products[0]!.name);
-    
+
     // Check shipping details
     expect(order!.shippingDetails.provider).toBe("test");
     expect(order!.shippingDetails.courier).toBe("TEST");
     expect(order!.shippingDetails.service).toBe("TEST-STANDARD");
-    
+
     // Check address snippet
     expect(order!.address.recipientName).toBe("Budi Santoso");
     expect(order!.address.phone).toBe("+6281234567890");
-    
+
     // Verify records in database directly
     const db = database.db;
-    const [dbOrder] = await db.select().from(s.orders).where(eq(s.orders.orderNumber, order!.orderNumber));
+    const [dbOrder] = await db
+      .select()
+      .from(s.orders)
+      .where(eq(s.orders.orderNumber, order!.orderNumber));
     expect(dbOrder!.notes).toBe("Tolong bungkus rapi");
     expect(dbOrder!.shippingCost).toBe(choice.cost);
-    
-    const [dbCustomer] = await db.select().from(s.customers).where(eq(s.customers.id, dbOrder!.customerId));
+
+    const [dbCustomer] = await db
+      .select()
+      .from(s.customers)
+      .where(eq(s.customers.id, dbOrder!.customerId));
     expect(dbCustomer!.email).toBe("budi@example.com");
   });
 
   it("handles idempotent duplicate submissions gracefully", async () => {
     const { products } = await fixture([45000]);
-    
+
     const preview = await prepareCheckout({
       ids: [products[0]!.id],
       customer: {
@@ -162,16 +171,22 @@ describe("Checkout Flow Integration", () => {
         province: "Jawa",
         city: "Barat",
         district: "Satu",
-        postalCode: "12345"
-      }
+        postalCode: "12345",
+      },
     });
-    
+
     const choice = preview.choices[0]!;
-    
+
     const paymentMethodId = preview.payments[0]!.id;
-    const res1 = await submitCheckout({ reference: choice.reference, paymentMethodId });
-    const res2 = await submitCheckout({ reference: choice.reference, paymentMethodId });
-    
+    const res1 = await submitCheckout({
+      reference: choice.reference,
+      paymentMethodId,
+    });
+    const res2 = await submitCheckout({
+      reference: choice.reference,
+      paymentMethodId,
+    });
+
     // Should yield exactly the same token
     expect(res1.publicToken).toBe(res2.publicToken);
   });

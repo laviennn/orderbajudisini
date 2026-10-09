@@ -39,14 +39,14 @@ async function getCities(signal: AbortSignal) {
   });
 
   if (!res.ok) throw new AppError("SHIPPING_PROVIDER_UNAVAILABLE");
-  
+
   const json = await res.json();
   const data = responseSchema.parse(json);
-  
+
   if (data.rajaongkir.status.code !== 200) {
     throw new AppError("SHIPPING_PROVIDER_UNAVAILABLE");
   }
-  
+
   cachedCities = z.array(citySchema).parse(data.rajaongkir.results);
   return cachedCities;
 }
@@ -57,13 +57,13 @@ export const rajaOngkirStarterProvider: ShippingProvider = {
   async searchDestinations(query, signal) {
     const cities = await getCities(signal);
     const lowerQuery = query.toLowerCase();
-    
+
     return cities
       .filter(
         (c) =>
           c.city_name.toLowerCase().includes(lowerQuery) ||
           c.province.toLowerCase().includes(lowerQuery) ||
-          c.postal_code.includes(lowerQuery)
+          c.postal_code.includes(lowerQuery),
       )
       .slice(0, 20)
       .map((c) => ({

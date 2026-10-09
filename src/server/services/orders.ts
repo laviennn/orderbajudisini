@@ -94,7 +94,10 @@ async function databaseNow(tx: Transaction) {
 }
 // Internal checkout service: future HTTP entry must verify guest checkout context and rate-limit.
 // No caller may supply monetary values; a trusted persisted shipping quote is mandatory.
-export async function createReservedOrder(input: unknown, options?: {expectedMerchandiseTotal: number}) {
+export async function createReservedOrder(
+  input: unknown,
+  options?: { expectedMerchandiseTotal: number },
+) {
   return databaseOperation(async () => {
     const data = orderInput.parse(input);
     data.items.sort((a, b) => a.productId.localeCompare(b.productId));
@@ -166,7 +169,7 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
         bank = rows[0];
         if (!bank) throw new AppError("NOT_FOUND");
       }
-      
+
       let qris = null;
       if (data.paymentMethod === "qris") {
         const rows = await tx
@@ -175,7 +178,8 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
           .where(eq(qrisSettings.id, 1))
           .for("share");
         qris = rows[0];
-        if (!qris || !qris.active || !qris.imageObjectKey) throw new AppError("NOT_FOUND");
+        if (!qris || !qris.active || !qris.imageObjectKey)
+          throw new AppError("NOT_FOUND");
       }
       if (!address) throw new AppError("NOT_FOUND");
       const [quote] = await tx
@@ -257,7 +261,11 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
         throw new AppError("INVALID_SHIPPING_SELECTION");
       const pricing = await priceLockedProducts(tx, priced, now);
       const due = new Date(now.getTime() + settings.minutes * 60000);
-      if (options && pricing.merchandiseTotal !== options.expectedMerchandiseTotal) throw new AppError("CONFLICT");
+      if (
+        options &&
+        pricing.merchandiseTotal !== options.expectedMerchandiseTotal
+      )
+        throw new AppError("CONFLICT");
       const total = sumMoney([pricing.merchandiseTotal, quote.cost]);
       const id = randomUUID();
       const { token, ciphertext } = createOrderToken(secret, id);
@@ -366,17 +374,21 @@ export async function createReservedOrder(input: unknown, options?: {expectedMer
         orderId: id,
         method: data.paymentMethod,
         bankAccountId: bank ? bank.id : null,
-        bankSnapshot: bank ? {
-          bankName: bank.bankName,
-          accountNumber: bank.accountNumber,
-          accountHolder: bank.accountHolder,
-          instructions: bank.instructions,
-        } : null,
-        qrisSnapshot: qris ? {
-          merchantName: qris.merchantName,
-          imageObjectKey: qris.imageObjectKey!,
-          instructions: qris.instructions,
-        } : null,
+        bankSnapshot: bank
+          ? {
+              bankName: bank.bankName,
+              accountNumber: bank.accountNumber,
+              accountHolder: bank.accountHolder,
+              instructions: bank.instructions,
+            }
+          : null,
+        qrisSnapshot: qris
+          ? {
+              merchantName: qris.merchantName,
+              imageObjectKey: qris.imageObjectKey!,
+              instructions: qris.instructions,
+            }
+          : null,
         expectedAmount: total,
       });
       await tx

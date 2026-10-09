@@ -17,10 +17,16 @@ export default async function Dashboard() {
         <p>Modul untuk izin akun Anda belum tersedia.</p>
       </main>
     );
-  const [counts, recentProducts, pendingPayments, processingOrders, recentOrders] = await Promise.all([
+  const [
+    counts,
+    recentProducts,
+    pendingPayments,
+    processingOrders,
+    recentOrders,
+  ] = await Promise.all([
     catalogDashboard(),
     adminProductList({}),
-    getAdminOrders({ status: "submitted", pageSize: 5 }),
+    getAdminOrders({ status: "payment_submitted", pageSize: 5 }),
     getAdminOrders({ status: "processing", pageSize: 5 }),
     getAdminOrders({ pageSize: 5 }),
   ]);
@@ -41,12 +47,20 @@ export default async function Dashboard() {
           </div>
         ))}
       </dl>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem", marginTop: "2rem" }}>
-        
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "2rem",
+          marginTop: "2rem",
+        }}
+      >
         <div>
           <div className="section-heading">
             <h2>Pesanan Terakhir</h2>
-            <Link className="text-link" href="/admin/orders">Semua pesanan</Link>
+            <Link className="text-link" href="/admin/orders">
+              Semua pesanan
+            </Link>
           </div>
           <ul className="admin-recent">
             {recentOrders.items.slice(0, 5).map((o) => (
@@ -60,7 +74,9 @@ export default async function Dashboard() {
 
           <div className="section-heading" style={{ marginTop: "2rem" }}>
             <h2>Menunggu Pembayaran</h2>
-            <Link className="text-link" href="/admin/payments">Verifikasi</Link>
+            <Link className="text-link" href="/admin/payments">
+              Verifikasi
+            </Link>
           </div>
           <ul className="admin-recent">
             {pendingPayments.items.slice(0, 5).map((o) => (
@@ -76,7 +92,9 @@ export default async function Dashboard() {
         <div>
           <div className="section-heading">
             <h2>Produk Terakhir</h2>
-            <Link className="text-link" href="/admin/products">Semua produk</Link>
+            <Link className="text-link" href="/admin/products">
+              Semua produk
+            </Link>
           </div>
           <ul className="admin-recent">
             {recentProducts.items.slice(0, 5).map((p) => (
@@ -87,22 +105,30 @@ export default async function Dashboard() {
             ))}
           </ul>
           {!recentProducts.items.length && (
-            <p>Belum ada produk. Mulai dari kategori, lalu buat produk pertama.</p>
+            <p>
+              Belum ada produk. Mulai dari kategori, lalu buat produk pertama.
+            </p>
           )}
 
           <div className="section-heading" style={{ marginTop: "2rem" }}>
             <h2>Antrean Pengiriman</h2>
-            <Link className="text-link" href="/admin/shipments">Kirim pesanan</Link>
+            <Link className="text-link" href="/admin/shipments">
+              Kirim pesanan
+            </Link>
           </div>
           <ul className="admin-recent">
             {processingOrders.items.slice(0, 5).map((o) => (
               <li key={o.id}>
                 <Link href={`/admin/orders/${o.id}`}>{o.orderNumber}</Link>
-                <span>{o.shippingCourier} {o.shippingService}</span>
+                <span>
+                  {o.shippingCourier} {o.shippingService}
+                </span>
               </li>
             ))}
           </ul>
-          {!processingOrders.items.length && <p>Semua pesanan sudah dikirim.</p>}
+          {!processingOrders.items.length && (
+            <p>Semua pesanan sudah dikirim.</p>
+          )}
         </div>
       </div>
     </main>

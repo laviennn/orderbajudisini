@@ -89,14 +89,12 @@ beforeAll(async () => {
   orderRole = (
     await db.select().from(s.roles).where(eq(s.roles.name, "Order Operator"))
   )[0]!.id;
-  await db
-    .insert(s.storeSettings)
-    .values({
-      id: 1,
-      storeName: "TEST ONLY STORE",
-      shippingOrigin: testOrigin,
-      reservationMinutes: 30,
-    });
+  await db.insert(s.storeSettings).values({
+    id: 1,
+    storeName: "TEST ONLY STORE",
+    shippingOrigin: testOrigin,
+    reservationMinutes: 30,
+  });
 });
 afterAll(async () => {
   await instance?.stop();

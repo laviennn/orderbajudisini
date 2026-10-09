@@ -314,21 +314,20 @@ export const payments = pgTable(
       .references(() => orders.id, { onDelete: "restrict" })
       .unique(),
     method: text("method").notNull().default("bank_transfer"),
-    bankAccountId: uuid("bank_account_id")
-      .references(() => bankAccounts.id, { onDelete: "restrict" }),
-    bankSnapshot: jsonb("bank_snapshot")
-      .$type<{
-        bankName: string;
-        accountNumber: string;
-        accountHolder: string;
-        instructions?: string | null;
-      }>(),
-    qrisSnapshot: jsonb("qris_snapshot")
-      .$type<{
-        merchantName?: string | null;
-        imageObjectKey: string;
-        instructions?: string | null;
-      }>(),
+    bankAccountId: uuid("bank_account_id").references(() => bankAccounts.id, {
+      onDelete: "restrict",
+    }),
+    bankSnapshot: jsonb("bank_snapshot").$type<{
+      bankName: string;
+      accountNumber: string;
+      accountHolder: string;
+      instructions?: string | null;
+    }>(),
+    qrisSnapshot: jsonb("qris_snapshot").$type<{
+      merchantName?: string | null;
+      imageObjectKey: string;
+      instructions?: string | null;
+    }>(),
     expectedAmount: amount("expected_amount"),
     status: paymentStatus("status").notNull().default("pending"),
     proofTokenHash: text("proof_token_hash").unique(),
@@ -347,7 +346,10 @@ export const payments = pgTable(
   },
   (t) => [
     moneyCheck("payment_amount_valid", t.expectedAmount),
-    check("payment_method_valid", sql`${t.method} in ('bank_transfer', 'qris')`),
+    check(
+      "payment_method_valid",
+      sql`${t.method} in ('bank_transfer', 'qris')`,
+    ),
     check(
       "payment_proof_private",
       sql`${t.proofObjectKey} is null or (${t.proofObjectKey} like 'payment-proof/%' and ${t.proofObjectKey} not like '%..%')`,

@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ publicToken: string }> }
+  { params }: { params: Promise<{ publicToken: string }> },
 ) {
   try {
     const { publicToken } = await params;
@@ -15,12 +15,12 @@ export async function POST(
     if (error instanceof AppError) {
       return NextResponse.json(
         { code: error.code, message: error.message },
-        { status: 400 }
+        { status: 400 },
       );
     }
     return NextResponse.json(
       { code: "INTERNAL_ERROR", message: "Kesalahan server." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

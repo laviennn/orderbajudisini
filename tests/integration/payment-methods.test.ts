@@ -1,5 +1,14 @@
+import sharp from "sharp";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { startTestDatabase } from "./database";
 import * as s from "@/server/db/schema";
 import { bootstrapOwner } from "@/server/services/bootstrap";
@@ -14,8 +23,15 @@ vi.mock("@/server/auth", () => ({
   authenticationEnabled: () => true,
 }));
 
+let testPng: Buffer;
 const mockStorage = {
-  createUpload: async (input: { mime: string; bytes: number; purpose: string }) => ({
+  inspectObject: async () => ({ bytes: testPng.length, mime: "image/png" }),
+  readSiteMedia: async () => testPng,
+  createUpload: async (input: {
+    mime: string;
+    bytes: number;
+    purpose: string;
+  }) => ({
     key: `site-media/${randomUUID()}.png`,
     url: "https://test-storage.invalid/upload",
     expiresIn: 120,
@@ -40,11 +56,20 @@ import {
   saveQrisSettings,
   getQrisSettings,
 } from "@/server/services/settings";
-import { prepareCheckout, submitCheckout, publicOrder } from "@/server/services/checkout";
+import {
+  prepareCheckout,
+  submitCheckout,
+  publicOrder,
+} from "@/server/services/checkout";
 
 let adminId: string;
 
 beforeAll(async () => {
+  testPng = await sharp({
+    create: { width: 32, height: 32, channels: 3, background: "white" },
+  })
+    .png()
+    .toBuffer();
   database = await startTestDatabase();
   const res = await bootstrapOwner(database.db, {
     name: "Admin",
@@ -420,7 +445,9 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
     expect(qrisOrder?.paymentMethod).toBe("qris");
     expect(qrisOrder?.qris?.merchantName).toBe("Snapshot QRIS");
     expect(qrisOrder?.qris?.imageObjectKey).toBe(validSiteMediaKey);
-    expect(qrisOrder?.qris?.imageUrl).toBe(`https://media.test.invalid/${validSiteMediaKey}`);
+    expect(qrisOrder?.qris?.imageUrl).toBe(
+      `https://media.test.invalid/${validSiteMediaKey}`,
+    );
     expect(qrisOrder?.qris?.instructions).toBe("Scan snapshot QRIS");
 
     // 3. Delete bank account and verify order snapshot is still preserved

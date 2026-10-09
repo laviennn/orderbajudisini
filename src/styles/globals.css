@@ -1106,7 +1106,8 @@ html:has(.admin-frame) body {
     min-width: 0;
     word-break: break-all;
   }
-  .admin-table th, .admin-table td {
+  .admin-table th,
+  .admin-table td {
     padding: 0.5rem;
     overflow: hidden;
   }

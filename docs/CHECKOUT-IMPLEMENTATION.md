@@ -21,11 +21,11 @@ This document details the implementation of the Phase 4C guest checkout system.
 
 The initial order state is `pending_payment`.
 
-*   `pending_payment`: Order created, inventory reserved, waiting for manual bank transfer verification.
-*   `payment_submitted`: (Phase 5) Buyer has uploaded proof of payment.
-*   `payment_verified`: (Phase 5) Operator has verified the payment.
-*   `processing`: Order is being packed.
-*   `shipped`: Order has been handed over to the courier. Tracking number added.
-*   `completed`: Order received by customer.
-*   `cancelled`: Order was cancelled (by operator or due to timeout).
-*   `expired`: Payment was not received within the reservation window (e.g., 30 minutes).
+- `pending_payment`: Order created, inventory reserved, waiting for manual bank transfer verification.
+- `payment_submitted`: (Phase 5) Buyer has uploaded proof of payment.
+- `payment_verified`: (Phase 5) Operator has verified the payment.
+- `processing`: Order is being packed.
+- `shipped`: Order has been handed over to the courier. Tracking number added.
+- `completed`: Order received by customer.
+- `cancelled`: Order was cancelled (by operator or due to timeout).
+- `expired`: Payment was not received within the reservation window (e.g., 30 minutes).

@@ -143,9 +143,13 @@ test("cart add, persistence, removal, unavailable entries and server pricing", a
     await expect(page.locator(".cart-total dd")).toContainText(total);
     await expect(page.locator(".cart-lines li")).toHaveCount(items.length);
     if (items.includes(31) || items.includes(32)) {
-      await expect(page.getByRole("link", { name: /Lanjut ke checkout/ })).not.toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /Lanjut ke checkout/ }),
+      ).not.toBeVisible();
     } else {
-      await expect(page.getByRole("link", { name: /Lanjut ke checkout/ })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: /Lanjut ke checkout/ }),
+      ).toBeVisible();
     }
   }
   await expect(

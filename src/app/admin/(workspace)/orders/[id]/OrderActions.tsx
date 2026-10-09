@@ -26,7 +26,7 @@ export default function OrderActions({
 
   const handleAction = async (action: "process" | "complete") => {
     if (!confirm(`Are you sure you want to ${action} this order?`)) return;
-    
+
     setIsLoading(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/${action}`, {
@@ -35,7 +35,9 @@ export default function OrderActions({
       if (!res.ok) throw new Error(await res.text());
       router.refresh();
     } catch (err) {
-      alert(`Failed to ${action} order: ${err instanceof Error ? err.message : String(err)}`);
+      alert(
+        `Failed to ${action} order: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +49,7 @@ export default function OrderActions({
       alert("Nomor resi wajib diisi");
       return;
     }
-    
+
     setIsLoading(true);
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/ship`, {
@@ -64,7 +66,9 @@ export default function OrderActions({
       setShowShipForm(false);
       router.refresh();
     } catch (err) {
-      alert(`Failed to ship order: ${err instanceof Error ? err.message : String(err)}`);
+      alert(
+        `Failed to ship order: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -91,60 +95,81 @@ export default function OrderActions({
           >
             Kirim Pesanan
           </button>
-          
+
           {showShipForm && (
-            <form onSubmit={handleShip} className="card" style={{ marginTop: '1rem', border: '1px solid #ccc' }}>
+            <form
+              onSubmit={handleShip}
+              className="card"
+              style={{ marginTop: "1rem", border: "1px solid #ccc" }}
+            >
               <h3>Detail Pengiriman</h3>
-              
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
+
+              <div className="form-group" style={{ marginBottom: "1rem" }}>
                 <label>Kurir</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={shipData.courier}
-                  onChange={(e) => setShipData({...shipData, courier: e.target.value})}
+                  onChange={(e) =>
+                    setShipData({ ...shipData, courier: e.target.value })
+                  }
                   required
-                  style={{ width: '100%', padding: '0.5rem' }}
+                  style={{ width: "100%", padding: "0.5rem" }}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: "1rem" }}>
                 <label>Layanan</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={shipData.service}
-                  onChange={(e) => setShipData({...shipData, service: e.target.value})}
+                  onChange={(e) =>
+                    setShipData({ ...shipData, service: e.target.value })
+                  }
                   required
-                  style={{ width: '100%', padding: '0.5rem' }}
+                  style={{ width: "100%", padding: "0.5rem" }}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: "1rem" }}>
                 <label>Nomor Resi (Tracking Number)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={shipData.trackingNumber}
-                  onChange={(e) => setShipData({...shipData, trackingNumber: e.target.value})}
+                  onChange={(e) =>
+                    setShipData({ ...shipData, trackingNumber: e.target.value })
+                  }
                   required
-                  style={{ width: '100%', padding: '0.5rem' }}
+                  style={{ width: "100%", padding: "0.5rem" }}
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: "1rem" }}>
                 <label>Waktu Pengiriman</label>
-                <input 
-                  type="datetime-local" 
+                <input
+                  type="datetime-local"
                   value={shipData.shippedAt}
-                  onChange={(e) => setShipData({...shipData, shippedAt: e.target.value})}
+                  onChange={(e) =>
+                    setShipData({ ...shipData, shippedAt: e.target.value })
+                  }
                   required
-                  style={{ width: '100%', padding: '0.5rem' }}
+                  style={{ width: "100%", padding: "0.5rem" }}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isLoading}
+                >
                   Simpan & Kirim
                 </button>
-                <button type="button" className="btn" onClick={() => setShowShipForm(false)} disabled={isLoading}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowShipForm(false)}
+                  disabled={isLoading}
+                >
                   Batal
                 </button>
               </div>

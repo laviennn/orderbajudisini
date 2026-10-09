@@ -7,7 +7,9 @@ import { getEnvironment } from "@/server/env";
 export async function dispatchAnalyticsEvents() {
   const env = getEnvironment();
   if (!env.GA4_MEASUREMENT_ID || !env.GA4_API_SECRET) {
-    console.log("[Analytics] Skipping dispatch: GA4_MEASUREMENT_ID or GA4_API_SECRET not configured.");
+    console.log(
+      "[Analytics] Skipping dispatch: GA4_MEASUREMENT_ID or GA4_API_SECRET not configured.",
+    );
     return { dispatched: 0, failed: 0 };
   }
 
@@ -47,8 +49,8 @@ export async function dispatchAnalyticsEvents() {
           {
             name: event.eventType,
             params: event.payload,
-          }
-        ]
+          },
+        ],
       };
 
       const res = await fetch(
@@ -59,12 +61,14 @@ export async function dispatchAnalyticsEvents() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       if (!res.ok) {
         const errorText = await res.text().catch(() => "Unknown error");
-        throw new Error(`GA4 API error: ${res.status} ${res.statusText} - ${errorText}`);
+        throw new Error(
+          `GA4 API error: ${res.status} ${res.statusText} - ${errorText}`,
+        );
       }
 
       successfulIds.push(event.id);
@@ -81,7 +85,9 @@ export async function dispatchAnalyticsEvents() {
 
   // 4. Cleanup and update status
   if (successfulIds.length > 0) {
-    await db.delete(analyticsOutbox).where(inArray(analyticsOutbox.id, successfulIds));
+    await db
+      .delete(analyticsOutbox)
+      .where(inArray(analyticsOutbox.id, successfulIds));
   }
 
   for (const failure of failedUpdates) {

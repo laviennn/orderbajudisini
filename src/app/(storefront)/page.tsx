@@ -19,6 +19,8 @@ export async function generateMetadata() {
       "Katalog pakaian secondhand.",
     "/",
     s.seo?.defaultOgImage,
+    false,
+    s.seo,
   );
 }
 async function HomeContent() {

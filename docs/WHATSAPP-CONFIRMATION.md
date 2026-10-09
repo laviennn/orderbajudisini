@@ -6,7 +6,7 @@ After a buyer submits payment proof via the storefront, they are presented with 
 
 ## Architecture
 
-1. **Pre-Requisites**: 
+1. **Pre-Requisites**:
    - Order must be in `payment_submitted` state.
    - Payment record must be in `submitted` state with a valid `proofObjectKey` and encrypted `proofTokenCiphertext`.
    - Store settings must have a `whatsappNumber` configured.
@@ -25,11 +25,11 @@ After a buyer submits payment proof via the storefront, they are presented with 
 
 ## Constraints
 
-- **Security**: 
+- **Security**:
   - Payment proofs remain strictly private. The WhatsApp message only contains a signed, temporary `proofUrl` that the operator can access.
   - The endpoint prevents unauthorized access by enforcing the `publicToken` authorization model.
-- **Data Integrity**: 
+- **Data Integrity**:
   - The WhatsApp message must only reflect the persisted snapshot data (e.g., `orders.addressSnapshot`, `orderItems.priceSnapshot`) and not mutable live catalog data.
-- **Testing**: 
+- **Testing**:
   - Validated by unit and integration tests under `tests/integration/whatsapp.test.ts`.
   - Smoke tested in `e2e/payment-proof.spec.ts`.

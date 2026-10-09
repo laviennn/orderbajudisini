@@ -1,5 +1,18 @@
 # Implementation plan
 
+## Batch B — settings and content
+
+SEO, banners, store identity/origin/footer and social settings are implemented on the verified Batch A base. See [BATCH-B-IMPLEMENTATION.md](BATCH-B-IMPLEMENTATION.md) for routes, permissions, migrations and media boundaries. Production storage override protection and actual QRIS image validation are included. Verification completed on 2026-10-09:
+
+- `npm test`: **65 passed** (14 files).
+- `npm run test:integration`: **85 passed** (12 files); fresh migrations through 0013 applied to isolated PostgreSQL.
+- `npm run test:e2e`: **23 passed**; includes the new owner SEO/banner/store/social flow, logo/favicon and desktop/mobile uploads, mobile overflow and Axe checks.
+- Typecheck, full ESLint, full Prettier check, `npm run db:check`, and `git diff --check`: passed.
+- `npm run build -- --webpack`: passed. Default Turbopack could not bind its worker port in this execution environment; this is not reported as a successful Turbopack build. The supported webpack production build was used for browser regression.
+- Existing QRIS/payment-proof test storage fixtures were updated to supply real image bytes and explicitly intercept test R2 I/O. Existing payment-queue async props and dashboard enum mistakes discovered by validation were corrected. Formatting-only cleanup is a separate commit.
+
+No deployment, production migration, real R2 write or production shipping call was performed. Review/apply migrations 0012–0013 as part of a separately authorized release. Detached site-media cleanup remains an operational policy; uploaded images are validated but not decoded as QR merchant payloads.
+
 ## Current status — Phase 4C checkout integration
 
 - [x] Implemented checkout API schema and handlers with accurate HTTP status code mapping.
@@ -279,4 +292,5 @@ Assessment and Phase 0 implementation delivered. No later-phase commerce feature
 - Not verified: live Neon migration/connectivity/transactions, live R2 signing/permissions/CORS, working staff identity provider, Vercel deployment, remote CI execution and any future commerce flow. No credentials were supplied; no fake successful integration was substituted.
 
 ### Phase 5B Completed
+
 WhatsApp Order Confirmation has been completed and verified.

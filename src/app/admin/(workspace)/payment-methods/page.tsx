@@ -28,7 +28,8 @@ export default async function PaymentMethodsPage() {
         <div>
           <h1>Metode Pembayaran</h1>
           <p className="small-note">
-            Kelola rekening transfer bank manual dan QRIS Statis untuk proses checkout pelanggan.
+            Kelola rekening transfer bank manual dan QRIS Statis untuk proses
+            checkout pelanggan.
           </p>
         </div>
       </div>
@@ -50,7 +51,13 @@ export default async function PaymentMethodsPage() {
               <form action={submitBankAccountAction}>
                 <input type="hidden" name="id" value={bank.id} />
                 <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-                  <legend style={{ fontWeight: 600, fontSize: "1.1rem", marginBottom: "1rem" }}>
+                  <legend
+                    style={{
+                      fontWeight: 600,
+                      fontSize: "1.1rem",
+                      marginBottom: "1rem",
+                    }}
+                  >
                     {bank.bankName} — {bank.accountNumber}
                   </legend>
                   <div className="editor-grid">
@@ -108,7 +115,10 @@ export default async function PaymentMethodsPage() {
                       maxLength={2000}
                     />
                   </label>
-                  <label className="checkbox-label" style={{ marginBottom: "1.25rem" }}>
+                  <label
+                    className="checkbox-label"
+                    style={{ marginBottom: "1.25rem" }}
+                  >
                     <input
                       type="checkbox"
                       name="active"
@@ -124,7 +134,10 @@ export default async function PaymentMethodsPage() {
                   </div>
                 </fieldset>
               </form>
-              <form action={deleteBankAccountAction} style={{ marginTop: "0.75rem" }}>
+              <form
+                action={deleteBankAccountAction}
+                style={{ marginTop: "0.75rem" }}
+              >
                 <input type="hidden" name="id" value={bank.id} />
                 <button
                   type="submit"
@@ -154,7 +167,13 @@ export default async function PaymentMethodsPage() {
           >
             <form action={submitBankAccountAction}>
               <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-                <legend style={{ fontWeight: 600, fontSize: "1.1rem", marginBottom: "1rem" }}>
+                <legend
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "1.1rem",
+                    marginBottom: "1rem",
+                  }}
+                >
                   Tambah Rekening Baru
                 </legend>
                 <div className="editor-grid">
@@ -212,8 +231,16 @@ export default async function PaymentMethodsPage() {
                     maxLength={2000}
                   />
                 </label>
-                <label className="checkbox-label" style={{ marginBottom: "1.25rem" }}>
-                  <input type="checkbox" name="active" value="true" defaultChecked />
+                <label
+                  className="checkbox-label"
+                  style={{ marginBottom: "1.25rem" }}
+                >
+                  <input
+                    type="checkbox"
+                    name="active"
+                    value="true"
+                    defaultChecked
+                  />
                   <span>Aktifkan langsung</span>
                 </label>
                 <div className="editor-actions" style={{ marginBottom: 0 }}>
@@ -229,7 +256,10 @@ export default async function PaymentMethodsPage() {
 
       <section style={{ marginBottom: "3rem" }}>
         <h2 style={{ marginBottom: "1rem" }}>QRIS Statis</h2>
-        <QrisEditor initialSettings={qrisSettings} initialImageUrl={qrisImageUrl} />
+        <QrisEditor
+          initialSettings={qrisSettings}
+          initialImageUrl={qrisImageUrl}
+        />
       </section>
     </div>
   );

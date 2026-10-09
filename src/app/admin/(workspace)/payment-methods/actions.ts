@@ -56,7 +56,8 @@ export async function submitBankAccountAction(formData: FormData) {
     instructions: formData.get("instructions")
       ? String(formData.get("instructions"))
       : null,
-    active: formData.get("active") === "true" || formData.get("active") === "on",
+    active:
+      formData.get("active") === "true" || formData.get("active") === "on",
     sortOrder: parseInt(String(formData.get("sortOrder") || "0"), 10),
   };
   await saveBankAccount(data);

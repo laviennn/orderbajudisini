@@ -6,8 +6,11 @@ import { formatIdr } from "@/lib/domain/money";
 
 export const metadata: Metadata = { title: "Daftar Pesanan" };
 
-const formatDateTime = (d: Date) => 
-  new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(d);
+const formatDateTime = (d: Date) =>
+  new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(d);
 
 const statusLabels: Record<string, string> = {
   pending_payment: "Menunggu Pembayaran",
@@ -37,7 +40,7 @@ export default async function AdminOrdersPage(props: {
         <h1>Pesanan</h1>
       </header>
 
-      <div className="card" style={{ overflowX: 'auto' }}>
+      <div className="card" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
@@ -54,19 +57,30 @@ export default async function AdminOrdersPage(props: {
             {data.items.map((item) => (
               <tr key={item.id}>
                 <td>{formatDateTime(item.createdAt)}</td>
-                <td><Link href={`/admin/orders/${item.id}`}>{item.orderNumber}</Link></td>
-                <td>{item.addressSnapshot?.recipientName || '-'}</td>
+                <td>
+                  <Link href={`/admin/orders/${item.id}`}>
+                    {item.orderNumber}
+                  </Link>
+                </td>
+                <td>{item.addressSnapshot?.recipientName || "-"}</td>
                 <td>{formatIdr(item.grandTotal)}</td>
                 <td>{statusLabels[item.status] || item.status}</td>
-                <td>{item.shippingCourier} - {item.shippingService}</td>
                 <td>
-                  <Link href={`/admin/orders/${item.id}`} className="text-link">Detail</Link>
+                  {item.shippingCourier} - {item.shippingService}
+                </td>
+                <td>
+                  <Link href={`/admin/orders/${item.id}`} className="text-link">
+                    Detail
+                  </Link>
                 </td>
               </tr>
             ))}
             {data.items.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: "2rem" }}>
+                <td
+                  colSpan={7}
+                  style={{ textAlign: "center", padding: "2rem" }}
+                >
                   Tidak ada pesanan ditemukan.
                 </td>
               </tr>

@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: [
     "@neondatabase/serverless",
+    "ws",
     "@aws-sdk/client-s3",
     "@aws-sdk/s3-request-presigner",
   ],

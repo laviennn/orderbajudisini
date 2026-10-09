@@ -41,7 +41,7 @@ async function fixture(prices = [45000]) {
         quantity: 1,
         promotionEligible: true,
         publishedAt: new Date(),
-      }))
+      })),
     )
     .returning();
   return { category, products };
@@ -59,6 +59,7 @@ const adapter: StorageAdapter = {
     return { bytes: value.body.length, mime: value.mime };
   },
   readProductSource: async (key) => objects.get(key)!.body,
+  readSiteMedia: async (key) => objects.get(key)!.body,
   readPaymentProof: async (key) => objects.get(key)!.body,
   writeProductVariant: async (key, body) => {
     objects.set(key, { body, mime: "image/webp" });
@@ -79,41 +80,63 @@ vi.mock("@/server/storage/r2", () => ({
 import { generateWhatsAppConfirmationUrl } from "@/server/services/whatsapp";
 import { eq } from "drizzle-orm";
 import { prepareCheckout, submitCheckout } from "@/server/services/checkout";
-import { authorizeProofUpload, completeProofUpload } from "@/server/services/payments";
+import {
+  authorizeProofUpload,
+  completeProofUpload,
+} from "@/server/services/payments";
 
 beforeAll(async () => {
   database = await startTestDatabase();
   vi.stubEnv("AUTH_SECRET", "TEST-only-checkout-secret-".repeat(2));
   vi.stubEnv("SHIPPING_PROVIDER", "test");
   vi.stubEnv("APP_URL", "https://localhost:3000");
-  
+
   // Set store settings
   await database.db
     .insert(s.storeSettings)
-    .values({ id: 1, storeName: "Test Store", whatsappNumber: "081234567890", reservationMinutes: 30, shippingOrigin: { province: "TEST", city: "TEST", district: "TEST", subdistrict: null, postalCode: "00000", providerDestinationId: null } })
+    .values({
+      id: 1,
+      storeName: "Test Store",
+      whatsappNumber: "081234567890",
+      reservationMinutes: 30,
+      shippingOrigin: {
+        province: "TEST",
+        city: "TEST",
+        district: "TEST",
+        subdistrict: null,
+        postalCode: "00000",
+        providerDestinationId: null,
+      },
+    })
     .onConflictDoUpdate({
       target: s.storeSettings.id,
       set: { whatsappNumber: "081234567890" },
     });
-    
-  await database.db
-    .insert(s.bankAccounts)
-    .values({
-      bankName: "TEST BANK",
-      accountNumber: "1234567890",
-      accountHolder: "TEST HOLDER",
-      active: true,
-      sortOrder: 1,
-    });
+
+  await database.db.insert(s.bankAccounts).values({
+    bankName: "TEST BANK",
+    accountNumber: "1234567890",
+    accountHolder: "TEST HOLDER",
+    active: true,
+    sortOrder: 1,
+  });
 });
 
 test("rejects invalid public token", async () => {
-  await expect(generateWhatsAppConfirmationUrl("invalid-token")).rejects.toThrow("Data tidak ditemukan.");
+  await expect(
+    generateWhatsAppConfirmationUrl("invalid-token"),
+  ).rejects.toThrow("Data tidak ditemukan.");
 });
 
 test("handles whatsapp configuration safely and correctly formats message", async () => {
   const { products } = await fixture([45000]);
-  const origin = { province: "TEST", city: "TEST", district: "TEST", subdistrict: "TEST", postalCode: "12345" };
+  const origin = {
+    province: "TEST",
+    city: "TEST",
+    district: "TEST",
+    subdistrict: "TEST",
+    postalCode: "12345",
+  };
   let req: Awaited<ReturnType<typeof prepareCheckout>>;
   try {
     req = await prepareCheckout({
@@ -125,7 +148,7 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
         recipientName: "Pembeli WA",
         addressLine: "Jalan WA No 1",
         ...origin,
-      }
+      },
     });
   } catch (err) {
     if (err instanceof AppError) console.error(err.fieldErrors);
@@ -138,7 +161,9 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
   });
 
   // Should reject if not payment_submitted
-  await expect(generateWhatsAppConfirmationUrl(publicToken)).rejects.toThrow("Periksa kembali data yang dikirim.");
+  await expect(generateWhatsAppConfirmationUrl(publicToken)).rejects.toThrow(
+    "Periksa kembali data yang dikirim.",
+  );
 
   const auth = await authorizeProofUpload(publicToken, {
     mime: "image/jpeg",
@@ -146,7 +171,7 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
   });
 
   const buffer = Buffer.alloc(1000);
-  buffer.set([0xFF, 0xD8, 0xFF, 0xE0], 0);
+  buffer.set([0xff, 0xd8, 0xff, 0xe0], 0);
   objects.set(auth.key, { body: buffer, mime: "image/jpeg" });
 
   await completeProofUpload(publicToken, {
@@ -159,15 +184,25 @@ test("handles whatsapp configuration safely and correctly formats message", asyn
 
   const searchParams = new URL(url).searchParams;
   const text = searchParams.get("text")!;
-  expect(text).toContain("Halo Admin, saya ingin mengonfirmasi pembayaran pesanan saya.");
+  expect(text).toContain(
+    "Halo Admin, saya ingin mengonfirmasi pembayaran pesanan saya.",
+  );
   expect(text).toContain("Nama Pembeli: Pembeli WA");
   expect(text).toContain("Alamat: Jalan WA No 1, TEST, TEST, TEST, 12345");
   expect(text).toContain("https://localhost:3000/proof/"); // APP_URL in test env
 
   // Test no whatsapp number
-  await database.db.update(s.storeSettings).set({ whatsappNumber: null }).where(eq(s.storeSettings.id, 1));
-  await expect(generateWhatsAppConfirmationUrl(publicToken)).rejects.toThrow("Periksa kembali data yang dikirim.");
+  await database.db
+    .update(s.storeSettings)
+    .set({ whatsappNumber: null })
+    .where(eq(s.storeSettings.id, 1));
+  await expect(generateWhatsAppConfirmationUrl(publicToken)).rejects.toThrow(
+    "Periksa kembali data yang dikirim.",
+  );
 
   // Restore whatsapp number
-  await database.db.update(s.storeSettings).set({ whatsappNumber: "081234567890" }).where(eq(s.storeSettings.id, 1));
+  await database.db
+    .update(s.storeSettings)
+    .set({ whatsappNumber: "081234567890" })
+    .where(eq(s.storeSettings.id, 1));
 });

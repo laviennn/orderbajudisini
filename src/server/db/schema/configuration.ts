@@ -38,11 +38,15 @@ export const banners = pgTable(
     index("banner_active_sort_idx").on(t.active, t.sortOrder),
   ],
 );
+import type { SocialSettings } from "@/lib/social-settings";
+import type { PageSeo } from "@/lib/seo-settings";
 export const seoSettings = pgTable(
   "seo_settings",
   {
     id: integer("id").primaryKey().default(1),
     siteTitle: text("site_title").notNull(),
+    indexingEnabled: boolean("indexing_enabled").notNull().default(true),
+    pages: jsonb("pages").$type<PageSeo[]>().notNull().default([]),
     titleTemplate: text("title_template").notNull(),
     defaultDescription: text("default_description").notNull(),
     defaultOgImage: text("default_og_image"),
@@ -60,6 +64,11 @@ export const storeSettings = pgTable(
   {
     id: integer("id").primaryKey().default(1),
     storeName: text("store_name").notNull(),
+    description: text("description"),
+    logoObjectKey: text("logo_object_key"),
+    faviconObjectKey: text("favicon_object_key"),
+    footerText: text("footer_text"),
+    socialLinks: jsonb("social_links").$type<SocialSettings>(),
     whatsappNumber: text("whatsapp_number"),
     supportEmail: text("support_email"),
     displayAddress: text("display_address"),

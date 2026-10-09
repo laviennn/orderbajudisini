@@ -38,11 +38,14 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
 
     try {
       // 1. Authorize Upload
-      const authRes = await fetch(`/api/order/${publicToken}/payment-proof/authorize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mime: file.type, bytes: file.size }),
-      });
+      const authRes = await fetch(
+        `/api/order/${publicToken}/payment-proof/authorize`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mime: file.type, bytes: file.size }),
+        },
+      );
       if (!authRes.ok) {
         const errorData = await authRes.json();
         throw new Error(errorData.message || "Gagal mengotorisasi unggahan.");
@@ -60,14 +63,19 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
       }
 
       // 3. Complete Upload
-      const completeRes = await fetch(`/api/order/${publicToken}/payment-proof/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, signature }),
-      });
+      const completeRes = await fetch(
+        `/api/order/${publicToken}/payment-proof/complete`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, signature }),
+        },
+      );
       if (!completeRes.ok) {
         const errorData = await completeRes.json();
-        throw new Error(errorData.message || "Gagal memproses bukti pembayaran.");
+        throw new Error(
+          errorData.message || "Gagal memproses bukti pembayaran.",
+        );
       }
 
       // Upload success, refresh order page
@@ -83,12 +91,26 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
   };
 
   return (
-    <div style={{ marginTop: "1.5rem", padding: "1.5rem", border: "1px dashed var(--border)", borderRadius: "var(--radius-control)" }}>
+    <div
+      style={{
+        marginTop: "1.5rem",
+        padding: "1.5rem",
+        border: "1px dashed var(--border)",
+        borderRadius: "var(--radius-control)",
+      }}
+    >
       <h3 style={{ marginBottom: "1rem" }}>Unggah Bukti Pembayaran</h3>
-      <p style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "var(--muted-foreground)" }}>
-        Setelah melakukan transfer, unggah foto bukti transfer (maks. 10MB) dalam format JPG, PNG, atau WebP.
+      <p
+        style={{
+          marginBottom: "1rem",
+          fontSize: "0.875rem",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        Setelah melakukan transfer, unggah foto bukti transfer (maks. 10MB)
+        dalam format JPG, PNG, atau WebP.
       </p>
-      
+
       <input
         type="file"
         accept="image/jpeg,image/png,image/webp"
@@ -97,15 +119,22 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
         ref={fileInputRef}
         style={{ marginBottom: "1rem", display: "block" }}
       />
-      
+
       {file && (
         <div style={{ marginBottom: "1rem", fontSize: "0.875rem" }}>
-          File terpilih: <strong>{file.name}</strong> ({(file.size / 1024 / 1024).toFixed(2)} MB)
+          File terpilih: <strong>{file.name}</strong> (
+          {(file.size / 1024 / 1024).toFixed(2)} MB)
         </div>
       )}
 
       {error && (
-        <div style={{ color: "var(--error)", marginBottom: "1rem", fontSize: "0.875rem" }}>
+        <div
+          style={{
+            color: "var(--error)",
+            marginBottom: "1rem",
+            fontSize: "0.875rem",
+          }}
+        >
           {error}
         </div>
       )}

@@ -1,3 +1,5 @@
+import Image from "next/image";
+import { socialLinks } from "@/lib/social-settings";
 import Link from "next/link";
 import { storeForShell } from "@/server/services/storefront";
 import { CartAccess, Drawer } from "@/features/storefront/Interactions";
@@ -34,7 +36,18 @@ export default async function StorefrontLayout({
             className="wordmark"
             aria-label={`${store.name}, halaman utama`}
           >
-            {store.name}
+            {store.details?.logoUrl ? (
+              <Image
+                unoptimized
+                src={store.details.logoUrl}
+                alt=""
+                width={120}
+                height={48}
+                style={{ objectFit: "contain", maxWidth: "30vw" }}
+              />
+            ) : (
+              store.name
+            )}
           </Link>
           <nav className="desktop-nav" aria-label="Navigasi utama">
             {navigation}
@@ -48,7 +61,34 @@ export default async function StorefrontLayout({
           <Link className="wordmark" href="/">
             {store.name}
           </Link>
-          <p className="small-note">Pemesanan belum dibuka.</p>
+          {store.details?.description && (
+            <p className="small-note">{store.details.description}</p>
+          )}
+          {store.details?.footerText && (
+            <p className="small-note">{store.details.footerText}</p>
+          )}
+          {store.details?.displayAddress && (
+            <p>{store.details.displayAddress}</p>
+          )}
+          {store.details?.supportEmail && (
+            <a href={`mailto:${store.details.supportEmail}`}>
+              {store.details.supportEmail}
+            </a>
+          )}
+          {store.details?.whatsappNumber && (
+            <p>
+              <a href={`tel:+${store.details.whatsappNumber}`}>
+                +{store.details.whatsappNumber}
+              </a>
+            </p>
+          )}
+          <nav aria-label="Media sosial">
+            {socialLinks(store.details?.socialLinks).map(([label, url]) => (
+              <a key={label} href={url} rel="noopener noreferrer">
+                {label}
+              </a>
+            ))}
+          </nav>
         </div>
         <nav aria-label="Navigasi footer">
           <Link className="text-link" href="/products">

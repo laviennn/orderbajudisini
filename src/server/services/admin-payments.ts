@@ -15,7 +15,7 @@ export async function getPaymentQueue(options: GetPaymentQueueOptions = {}) {
   return withStaff("payments.verify", async (tx) => {
     const page = Math.max(1, options.page || 1);
     const pageSize = Math.min(100, Math.max(1, options.pageSize || 20));
-    
+
     const items = await tx
       .select({
         paymentId: payments.id,
@@ -35,7 +35,9 @@ export async function getPaymentQueue(options: GetPaymentQueueOptions = {}) {
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 
-    const countQuery = tx.select({ count: sql<number>`count(*)` }).from(payments)
+    const countQuery = tx
+      .select({ count: sql<number>`count(*)` })
+      .from(payments)
       .where(options.status ? eq(payments.status, options.status) : undefined);
     const countResult = await countQuery;
     const count = countResult[0]?.count ?? 0;
@@ -57,9 +59,9 @@ export async function getPaymentDetail(paymentId: string) {
       .from(payments)
       .where(eq(payments.id, paymentId))
       .limit(1);
-    
+
     if (!payment) throw new AppError("NOT_FOUND");
-    
+
     const [order] = await tx
       .select()
       .from(orders)
@@ -88,7 +90,7 @@ export async function getAdminPaymentProofUrl(paymentId: string) {
       .from(payments)
       .where(eq(payments.id, paymentId))
       .limit(1);
-    
+
     if (!payment || !payment.proofObjectKey) {
       throw new AppError("NOT_FOUND");
     }

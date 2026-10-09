@@ -69,8 +69,7 @@ export function getShippingProvider(): ShippingProvider {
   if (config.status === "active" && config.provider === "RAJAONGKIR") {
     return rajaOngkirStarterProvider;
   }
-  if (config.status !== "test")
-    throw new AppError("SHIPPING_NOT_CONFIGURED");
+  if (config.status !== "test") throw new AppError("SHIPPING_NOT_CONFIGURED");
   assertProviderAllowed(testProvider);
   return testProvider;
 }

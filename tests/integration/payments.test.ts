@@ -30,6 +30,7 @@ const adapter: StorageAdapter = {
     return { bytes: value.body.length, mime: value.mime };
   },
   readProductSource: async (key) => objects.get(key)!.body,
+  readSiteMedia: async (key) => objects.get(key)!.body,
   readPaymentProof: async (key) => objects.get(key)!.body,
   writeProductVariant: async (key, body) => {
     objects.set(key, { body, mime: "image/webp" });
@@ -48,31 +49,41 @@ vi.mock("@/server/storage/r2", () => ({
 }));
 
 import { prepareCheckout, submitCheckout } from "@/server/services/checkout";
-import { authorizeProofUpload, completeProofUpload, resolveProofUrl } from "@/server/services/payments";
+import {
+  authorizeProofUpload,
+  completeProofUpload,
+  resolveProofUrl,
+} from "@/server/services/payments";
 import { hashToken } from "@/server/services/orders";
 
 beforeAll(async () => {
   database = await startTestDatabase();
   vi.stubEnv("SHIPPING_PROVIDER", "test");
   vi.stubEnv("AUTH_SECRET", "TEST-only-checkout-secret-".repeat(2));
-  
+
   const testOrigin = {
-    province: "TEST", city: "TEST", district: "TEST",
-    subdistrict: null, postalCode: "00000", providerDestinationId: null,
+    province: "TEST",
+    city: "TEST",
+    district: "TEST",
+    subdistrict: null,
+    postalCode: "00000",
+    providerDestinationId: null,
   };
 
-  await database.db
-    .insert(s.storeSettings)
-    .values({
-      id: 1, storeName: "TEST ONLY", shippingOrigin: testOrigin, reservationMinutes: 30,
-    });
-    
-  await database.db
-    .insert(s.bankAccounts)
-    .values({
-      bankName: "TEST BANK", accountNumber: "1234567890", accountHolder: "TEST HOLDER",
-      active: true, sortOrder: 1,
-    });
+  await database.db.insert(s.storeSettings).values({
+    id: 1,
+    storeName: "TEST ONLY",
+    shippingOrigin: testOrigin,
+    reservationMinutes: 30,
+  });
+
+  await database.db.insert(s.bankAccounts).values({
+    bankName: "TEST BANK",
+    accountNumber: "1234567890",
+    accountHolder: "TEST HOLDER",
+    active: true,
+    sortOrder: 1,
+  });
 });
 
 afterAll(async () => {
@@ -90,24 +101,45 @@ async function createOrder(price = 45000) {
   const [product] = await db
     .insert(s.products)
     .values({
-      sku: `TEST-${suffix}`, slug: `test-${suffix}`, name: "TEST item", description: "TEST desc",
-      categoryId: category!.id, price, sizeLabel: "M", conditionGrade: "TEST good", conditionNotes: "TEST", status: "active",
-      quantity: 10, weightGrams: 500,
+      sku: `TEST-${suffix}`,
+      slug: `test-${suffix}`,
+      name: "TEST item",
+      description: "TEST desc",
+      categoryId: category!.id,
+      price,
+      sizeLabel: "M",
+      conditionGrade: "TEST good",
+      conditionNotes: "TEST",
+      status: "active",
+      quantity: 10,
+      weightGrams: 500,
     })
     .returning();
-  
+
   const prepareData = {
     ids: [product!.id],
     customer: {
-      name: "Budi Santoso", email: "budi@example.com", phone: "081234567890",
-      recipientName: "Budi Santoso", addressLine: "Jalan Merdeka 123",
-      province: "TEST", city: "TEST", district: "TEST", postalCode: "00000",
-    }
+      name: "Budi Santoso",
+      email: "budi@example.com",
+      phone: "081234567890",
+      recipientName: "Budi Santoso",
+      addressLine: "Jalan Merdeka 123",
+      province: "TEST",
+      city: "TEST",
+      district: "TEST",
+      postalCode: "00000",
+    },
   };
   const { choices, payments } = await prepareCheckout(prepareData);
-  const { publicToken } = await submitCheckout({ reference: choices[0]!.reference, paymentMethodId: payments[0]!.id });
+  const { publicToken } = await submitCheckout({
+    reference: choices[0]!.reference,
+    paymentMethodId: payments[0]!.id,
+  });
 
-  const [order] = await db.select().from(s.orders).where(eq(s.orders.publicTokenHash, hashToken(publicToken)));
+  const [order] = await db
+    .select()
+    .from(s.orders)
+    .where(eq(s.orders.publicTokenHash, hashToken(publicToken)));
   return { publicToken, order: order! };
 }
 
@@ -116,21 +148,33 @@ describe("Payment Proof Integration", () => {
     const { publicToken, order } = await createOrder();
 
     // 1. Authorize
-    const auth = await authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 });
+    const auth = await authorizeProofUpload(publicToken, {
+      mime: "image/jpeg",
+      bytes: 1024,
+    });
     expect(auth).toHaveProperty("key");
     expect(auth).toHaveProperty("signature");
 
     // Mock upload valid JPEG magic bytes
-    const validJpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(1021)]);
+    const validJpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff]),
+      Buffer.alloc(1021),
+    ]);
     objects.set(auth.key, { body: validJpeg, mime: "image/jpeg" });
 
     // 2. Complete
-    const complete = await completeProofUpload(publicToken, { key: auth.key, signature: auth.signature });
+    const complete = await completeProofUpload(publicToken, {
+      key: auth.key,
+      signature: auth.signature,
+    });
     expect(complete.status).toBe("submitted");
     expect(complete.proofToken).toBeDefined();
 
     // 3. Verify order state
-    const [updatedOrder] = await database.db.select().from(s.orders).where(eq(s.orders.id, order.id));
+    const [updatedOrder] = await database.db
+      .select()
+      .from(s.orders)
+      .where(eq(s.orders.id, order.id));
     expect(updatedOrder!.status).toBe("payment_submitted");
 
     // 4. Resolve Proof URL
@@ -140,16 +184,25 @@ describe("Payment Proof Integration", () => {
 
   it("fails completion if signature is invalid", async () => {
     const { publicToken } = await createOrder();
-    const auth = await authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 });
-    
-    const validJpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(1021)]);
+    const auth = await authorizeProofUpload(publicToken, {
+      mime: "image/jpeg",
+      bytes: 1024,
+    });
+
+    const validJpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff]),
+      Buffer.alloc(1021),
+    ]);
     objects.set(auth.key, { body: validJpeg, mime: "image/jpeg" });
 
     try {
-      await completeProofUpload(publicToken, { key: auth.key, signature: "a".repeat(64) });
+      await completeProofUpload(publicToken, {
+        key: auth.key,
+        signature: "a".repeat(64),
+      });
       expect.fail("Should throw");
     } catch (e: unknown) {
-      const err = e as { message: string, fieldErrors: { file: string[] } };
+      const err = e as { message: string; fieldErrors: { file: string[] } };
       expect(err.message).toBe("Periksa kembali data yang dikirim.");
       expect(err.fieldErrors.file[0]).toBe("Otorisasi unggahan tidak valid.");
     }
@@ -157,25 +210,33 @@ describe("Payment Proof Integration", () => {
 
   it("fails completion if magic bytes are invalid", async () => {
     const { publicToken } = await createOrder();
-    const auth = await authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 });
-    
+    const auth = await authorizeProofUpload(publicToken, {
+      mime: "image/jpeg",
+      bytes: 1024,
+    });
+
     // Invalid magic bytes
     const invalidJpeg = Buffer.alloc(1024);
     objects.set(auth.key, { body: invalidJpeg, mime: "image/jpeg" });
 
     try {
-      await completeProofUpload(publicToken, { key: auth.key, signature: auth.signature });
+      await completeProofUpload(publicToken, {
+        key: auth.key,
+        signature: auth.signature,
+      });
       expect.fail("Should throw");
     } catch (e: unknown) {
-      const err = e as { message: string, fieldErrors: { file: string[] } };
+      const err = e as { message: string; fieldErrors: { file: string[] } };
       expect(err.message).toBe("Periksa kembali data yang dikirim.");
-      expect(err.fieldErrors.file[0]).toBe("Konten file tidak sesuai format gambar yang didukung.");
+      expect(err.fieldErrors.file[0]).toBe(
+        "Konten file tidak sesuai format gambar yang didukung.",
+      );
     }
   });
 
   it("fails authorization if order is expired", async () => {
     const { publicToken, order } = await createOrder();
-    
+
     await database.db
       .update(s.orders)
       .set({ paymentDueAt: new Date(Date.now() - 1000) })
@@ -192,15 +253,21 @@ describe("Payment Proof Integration", () => {
       .where(eq(s.orders.id, order.id));
 
     await expect(
-      authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 })
+      authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 }),
     ).rejects.toThrowError("Perubahan status pesanan tidak diizinkan.");
   });
 
   it("fails completion if reservation is expired", async () => {
     const { publicToken, order } = await createOrder();
-    
-    const auth = await authorizeProofUpload(publicToken, { mime: "image/jpeg", bytes: 1024 });
-    const validJpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(1021)]);
+
+    const auth = await authorizeProofUpload(publicToken, {
+      mime: "image/jpeg",
+      bytes: 1024,
+    });
+    const validJpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff]),
+      Buffer.alloc(1021),
+    ]);
     objects.set(auth.key, { body: validJpeg, mime: "image/jpeg" });
 
     // Expire order paymentDueAt
@@ -210,25 +277,43 @@ describe("Payment Proof Integration", () => {
       .where(eq(s.orders.id, order.id));
 
     await expect(
-      completeProofUpload(publicToken, { key: auth.key, signature: auth.signature })
+      completeProofUpload(publicToken, {
+        key: auth.key,
+        signature: auth.signature,
+      }),
     ).rejects.toThrowError("Batas waktu reservasi telah berakhir.");
   });
 
   it("cleans up old proof when replaced", async () => {
     const { publicToken } = await createOrder();
-    
-    const auth1 = await authorizeProofUpload(publicToken, { mime: "image/png", bytes: 1024 });
-    const validPng = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(1016)]);
+
+    const auth1 = await authorizeProofUpload(publicToken, {
+      mime: "image/png",
+      bytes: 1024,
+    });
+    const validPng = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(1016),
+    ]);
     objects.set(auth1.key, { body: validPng, mime: "image/png" });
-    
-    await completeProofUpload(publicToken, { key: auth1.key, signature: auth1.signature });
+
+    await completeProofUpload(publicToken, {
+      key: auth1.key,
+      signature: auth1.signature,
+    });
     expect(objects.has(auth1.key)).toBe(true);
 
-    const auth2 = await authorizeProofUpload(publicToken, { mime: "image/png", bytes: 1024 });
+    const auth2 = await authorizeProofUpload(publicToken, {
+      mime: "image/png",
+      bytes: 1024,
+    });
     objects.set(auth2.key, { body: validPng, mime: "image/png" });
-    
-    await completeProofUpload(publicToken, { key: auth2.key, signature: auth2.signature });
-    
+
+    await completeProofUpload(publicToken, {
+      key: auth2.key,
+      signature: auth2.signature,
+    });
+
     // First object should be deleted
     expect(objects.has(auth1.key)).toBe(false);
     expect(objects.has(auth2.key)).toBe(true);
