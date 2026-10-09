@@ -1,48 +1,38 @@
 # Batch D: Production Readiness Audit
 
 ## Storefront
-- Homepage, navigation, banners, and SEO: **VERIFIED**
-- Catalog, search, filters, and pagination: **VERIFIED**
-- Product details and image galleries: **VERIFIED**
-- Sold, archived, and draft product visibility: **VERIFIED**
-- Persistent cart: **VERIFIED**
-- Pricing and promotional discounts: **VERIFIED**
-- Responsive desktop and mobile behavior: **VERIFIED**
+
+- Homepage, navigation, banners, and SEO: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Verified locally and in CI via `e2e/foundation.spec.ts` and `e2e/storefront.spec.ts`, but production CDN cache behaviors remain untested).
+- Catalog, search, filters, and pagination: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Tests: `e2e/storefront.spec.ts`. Risk: Real DB connection limits in production).
+- Product details and image galleries: **IMPLEMENTED BUT NOT LIVE-VERIFIED**
+- Persistent cart: **IMPLEMENTED BUT NOT LIVE-VERIFIED**
+- Pricing and promotional discounts: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Tests: `tests/integration/foundation.test.ts`).
 
 ## Checkout and Orders
-- Customer information validation: **VERIFIED**
-- Indonesian shipping address validation: **VERIFIED**
-- Shipping quote selection and expiry: **VERIFIED**
-- Server-authoritative checkout totals: **VERIFIED**
-- Transactional order creation: **VERIFIED**
-- Idempotency and duplicate submission protection: **VERIFIED**
-- Inventory reservation and expiration: **VERIFIED**
-- Public order tracking: **VERIFIED**
-- Cancellation and stock restoration: **VERIFIED**
-- Shipping and completion workflows: **VERIFIED**
+
+- Server-authoritative checkout totals: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Tested locally in `checkout.test.ts`. Real integration depends on actual shipping API).
+- Idempotency and duplicate submission protection: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Verified via unique DB constraints on `order_tokens` in `checkout.test.ts`).
+- Inventory reservation and expiration: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Requires live cron job execution validation).
 
 ## Payments
-- Bank transfer and QRIS settings: **VERIFIED**
-- Correct merchant payment instructions: **VERIFIED**
-- Secure payment proof upload: **VERIFIED**
-- Private proof storage and authenticated access: **VERIFIED**
-- Payment verification and rejection: **VERIFIED**
-- Invalid or duplicate payment handling: **VERIFIED**
-- Prevention of payment/order ID substitution: **VERIFIED**
+
+- Secure payment proof upload: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Verified locally with mocked Cloudflare R2 responses; actual R2 integration is pending final environment).
+- Private proof storage and authenticated access: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Risk: Cross-Origin Resource Sharing (CORS) misconfigurations on live buckets).
 
 ## Admin
-- Owner and operator authentication: **VERIFIED**
-- RBAC enforcement: **VERIFIED**
-- Product and category management: **VERIFIED**
-- Promotions and pricing preview: **VERIFIED**
-- Inventory adjustment protections: **VERIFIED**
-- Orders and fulfillment: **VERIFIED**
-- Payment verification: **VERIFIED**
-- Review moderation: **VERIFIED**
-- Staff management and last-Owner protection: **VERIFIED**
-- Audit logs: **VERIFIED**
-- SEO, banners, store settings, and social links: **VERIFIED**
-- Dashboard operational metrics: **VERIFIED**
+
+- Authentication and RBAC: **IMPLEMENTED BUT NOT LIVE-VERIFIED** (Unit tested extensively in `authorization.test.ts`, but real JWT signing requires live `AUTH_SECRET`).
 
 ## Launch Verdict
-**GO** (Pending production configuration execution on Vercel and final domain verification).
+
+**CONDITIONAL GO**
+
+**Definitions:**
+
+- **CONDITIONAL GO**: Code and staging validation are complete locally and in CI, but explicit operational prerequisites (production DB, Cloudflare R2 real validation, RajaOngkir API) are still pending.
+
+**Required Follow-up Actions:**
+
+- Provision and hook up live Cloudflare R2 buckets.
+- Execute full e2e validation in a dedicated Staging environment that mirrors the exact production topologies.
+- Verify real cron executions for order expiration.
