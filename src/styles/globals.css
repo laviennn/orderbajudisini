@@ -1153,3 +1153,28 @@ html:has(.admin-frame) body {
     gap: 1rem;
   }
 }
+.admin-review-list {
+  list-style: none;
+  padding: 0;
+}
+.admin-review-list > li {
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.review-body {
+  white-space: pre-wrap;
+}
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 767px) {
+  .admin-nav-group {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .admin-nav-group .nav-group {
+    white-space: nowrap;
+  }
+}

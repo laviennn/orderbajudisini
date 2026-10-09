@@ -31,6 +31,7 @@ const metadataSchema = z
 export const auditActions = [
   "owner.bootstrapped",
   "operator.created",
+  "operator.password_reset",
   "operator.role_changed",
   "operator.activated",
   "operator.deactivated",

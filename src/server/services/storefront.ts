@@ -48,13 +48,15 @@ export const readRelated = unstable_cache(
   ["related-v2"],
   catalogOptions,
 );
-export const readReviews = unstable_cache(
-  listApprovedReviews,
-  ["reviews-v1"],
-  options,
-);
+export const readReviews = unstable_cache(listApprovedReviews, ["reviews-v1"], {
+  revalidate: 60,
+  tags: ["storefront", "reviews"],
+});
 export const readReviewSummary = cache(
-  unstable_cache(approvedReviewSummary, ["review-summary-v1"], options),
+  unstable_cache(approvedReviewSummary, ["review-summary-v1"], {
+    revalidate: 60,
+    tags: ["storefront", "reviews"],
+  }),
 );
 export const readStore = cache(
   unstable_cache(
