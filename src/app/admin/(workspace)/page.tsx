@@ -7,7 +7,10 @@ import {
   getLowInventoryProducts,
 } from "@/server/services/admin-products";
 import { availabilityLabel } from "@/lib/catalog";
-import { getAdminOrders, getRevenueSummary } from "@/server/services/admin-orders";
+import {
+  getAdminOrders,
+  getRevenueSummary,
+} from "@/server/services/admin-orders";
 import { formatIdr } from "@/lib/domain/money";
 
 export default async function Dashboard() {
@@ -47,7 +50,9 @@ export default async function Dashboard() {
         </div>
         <div>
           <dt>Total Pendapatan</dt>
-          <dd style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{formatIdr(revenue.totalRevenue)}</dd>
+          <dd style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
+            {formatIdr(revenue.totalRevenue)}
+          </dd>
         </div>
         {["active", "sold"].map((status) => (
           <div key={status}>
@@ -108,13 +113,22 @@ export default async function Dashboard() {
             {lowInventory.map((p) => (
               <li key={p.id}>
                 <Link href={`/admin/products/${p.id}/edit`}>{p.name}</Link>
-                <span style={{ color: p.quantity === 0 ? "var(--color-danger)" : "var(--color-warning)" }}>
+                <span
+                  style={{
+                    color:
+                      p.quantity === 0
+                        ? "var(--color-danger)"
+                        : "var(--color-warning)",
+                  }}
+                >
                   Sisa {p.quantity}
                 </span>
               </li>
             ))}
           </ul>
-          {!lowInventory.length && <p>Semua produk aktif memiliki stok yang aman.</p>}
+          {!lowInventory.length && (
+            <p>Semua produk aktif memiliki stok yang aman.</p>
+          )}
         </div>
 
         <div>
@@ -133,7 +147,9 @@ export default async function Dashboard() {
             ))}
           </ul>
           {!recentProducts.items.length && (
-            <p>Belum ada produk. Mulai dari kategori, lalu buat produk pertama.</p>
+            <p>
+              Belum ada produk. Mulai dari kategori, lalu buat produk pertama.
+            </p>
           )}
 
           <div className="section-heading" style={{ marginTop: "2rem" }}>

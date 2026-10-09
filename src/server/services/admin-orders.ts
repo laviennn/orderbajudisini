@@ -153,7 +153,9 @@ export async function getRevenueSummary() {
         orderCount: sql<number>`count(*)::integer`,
       })
       .from(orders)
-      .where(or(eq(orders.status, "completed"), eq(orders.status, "processing")));
+      .where(
+        or(eq(orders.status, "completed"), eq(orders.status, "processing")),
+      );
     return {
       totalRevenue: result?.totalRevenue ?? 0,
       orderCount: result?.orderCount ?? 0,
