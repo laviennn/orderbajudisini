@@ -4,10 +4,12 @@ import { hasPermission } from "@/server/auth/policy";
 import {
   catalogDashboard,
   adminProductList,
+  getLowInventoryProducts,
 } from "@/server/services/admin-products";
 import { availabilityLabel } from "@/lib/catalog";
-import { getAdminOrders } from "@/server/services/admin-orders";
+import { getAdminOrders, getRevenueSummary } from "@/server/services/admin-orders";
 import { formatIdr } from "@/lib/domain/money";
+
 export default async function Dashboard() {
   const actor = await requirePermission("admin.access");
   if (!hasPermission(actor, "products.read"))
@@ -23,30 +25,38 @@ export default async function Dashboard() {
     pendingPayments,
     processingOrders,
     recentOrders,
+    revenue,
+    lowInventory,
   ] = await Promise.all([
     catalogDashboard(),
     adminProductList({}),
     getAdminOrders({ status: "payment_submitted", pageSize: 5 }),
     getAdminOrders({ status: "processing", pageSize: 5 }),
     getAdminOrders({ pageSize: 5 }),
+    getRevenueSummary(),
+    getLowInventoryProducts(),
   ]);
+
   return (
     <main id="main-content">
-      <h1>Ringkasan katalog</h1>
+      <h1>Ringkasan operasional</h1>
       <dl className="admin-counts">
-        {["active", "draft", "sold", "archived"].map((status) => (
+        <div>
+          <dt>Total Pesanan</dt>
+          <dd>{revenue.orderCount}</dd>
+        </div>
+        <div>
+          <dt>Total Pendapatan</dt>
+          <dd style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{formatIdr(revenue.totalRevenue)}</dd>
+        </div>
+        {["active", "sold"].map((status) => (
           <div key={status}>
-            <dt>
-              {status === "draft"
-                ? "Draft"
-                : status === "archived"
-                  ? "Arsip"
-                  : availabilityLabel[status as "active"]}
-            </dt>
+            <dt>Katalog {availabilityLabel[status as "active"]}</dt>
             <dd>{counts.find((c) => c.status === status)?.count ?? 0}</dd>
           </div>
         ))}
       </dl>
+
       <div
         style={{
           display: "grid",
@@ -87,6 +97,24 @@ export default async function Dashboard() {
             ))}
           </ul>
           {!pendingPayments.items.length && <p>Antrean verifikasi kosong.</p>}
+
+          <div className="section-heading" style={{ marginTop: "2rem" }}>
+            <h2>Peringatan Stok Rendah</h2>
+            <Link className="text-link" href="/admin/products?status=active">
+              Produk aktif
+            </Link>
+          </div>
+          <ul className="admin-recent">
+            {lowInventory.map((p) => (
+              <li key={p.id}>
+                <Link href={`/admin/products/${p.id}/edit`}>{p.name}</Link>
+                <span style={{ color: p.quantity === 0 ? "var(--color-danger)" : "var(--color-warning)" }}>
+                  Sisa {p.quantity}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!lowInventory.length && <p>Semua produk aktif memiliki stok yang aman.</p>}
         </div>
 
         <div>
@@ -105,9 +133,7 @@ export default async function Dashboard() {
             ))}
           </ul>
           {!recentProducts.items.length && (
-            <p>
-              Belum ada produk. Mulai dari kategori, lalu buat produk pertama.
-            </p>
+            <p>Belum ada produk. Mulai dari kategori, lalu buat produk pertama.</p>
           )}
 
           <div className="section-heading" style={{ marginTop: "2rem" }}>

@@ -436,3 +436,20 @@ export async function catalogDashboard() {
       .groupBy(products.status),
   );
 }
+
+export async function getLowInventoryProducts() {
+  return withStaff("products.read", async (tx) => {
+    const rows = await tx
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        quantity: products.quantity,
+      })
+      .from(products)
+      .where(and(eq(products.status, "active"), sql`${products.quantity} <= 1`))
+      .orderBy(asc(products.quantity), asc(products.id))
+      .limit(5);
+    return rows;
+  });
+}

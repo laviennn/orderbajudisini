@@ -144,3 +144,19 @@ export const shipOrder = (
   id: string,
   data: { courier: string; service: string; trackingNumber: string },
 ) => recordShipment({ ...data, orderId: id });
+
+export async function getRevenueSummary() {
+  return withStaff("orders.read", async (tx) => {
+    const [result] = await tx
+      .select({
+        totalRevenue: sql<number>`sum(${orders.grandTotal})::integer`,
+        orderCount: sql<number>`count(*)::integer`,
+      })
+      .from(orders)
+      .where(or(eq(orders.status, "completed"), eq(orders.status, "processing")));
+    return {
+      totalRevenue: result?.totalRevenue ?? 0,
+      orderCount: result?.orderCount ?? 0,
+    };
+  });
+}

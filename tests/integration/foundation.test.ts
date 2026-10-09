@@ -550,8 +550,13 @@ describe("real PostgreSQL foundation", () => {
           f.products.map((p) => p.id),
         ),
       );
+    const [persistedPromotion] = await db
+      .select()
+      .from(s.promotions)
+      .where(eq(s.promotions.id, promotion.id));
     await savePromotion({
       id: promotion.id,
+      updatedAt: persistedPromotion!.updatedAt.toISOString(),
       name: "TEST MODIFIED",
       requiredQuantity: 3,
       bundlePrice: 120000,
