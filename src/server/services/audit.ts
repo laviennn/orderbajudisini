@@ -18,6 +18,8 @@ import type { Executor } from "@/server/db/operations";
 import { auditLogs } from "@/server/db/schema";
 const metadataSchema = z
   .object({
+    previousQuantity: z.number().int().nonnegative().optional(),
+    quantity: z.number().int().nonnegative().optional(),
     from: statusValue.optional(),
     to: statusValue.optional(),
     roleId: z.uuid().optional(),
@@ -37,6 +39,7 @@ export const auditActions = [
   "operator.deactivated",
   "product.created",
   "product.updated",
+  "inventory.adjusted",
   "product.unpublished",
   "category.updated",
   "media.attached",

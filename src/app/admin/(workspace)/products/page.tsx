@@ -87,6 +87,7 @@ export default async function Products({
                 "Ukuran",
                 "Harga",
                 "Status",
+                "Stok",
                 "Diperbarui",
                 "Tindakan",
               ].map((label) => (
@@ -113,6 +114,7 @@ export default async function Products({
                 <td>{p.sizeLabel || "—"}</td>
                 <td>{formatIdr(p.price)}</td>
                 <td>{p.status}</td>
+                <td>{p.quantity}</td>
                 <td>
                   {p.updatedAt.toLocaleDateString("id-ID", {
                     timeZone: "Asia/Jakarta",
