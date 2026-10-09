@@ -59,6 +59,11 @@ export async function adminResponse(
       FORBIDDEN: 403,
       NOT_FOUND: 404,
       CONFLICT: 409,
+      INVALID_ORDER_TRANSITION: 409,
+      INVALID_PAYMENT_TRANSITION: 409,
+      PAYMENT_ALREADY_VERIFIED: 409,
+      LAST_OWNER: 409,
+      PRODUCT_UNAVAILABLE: 409,
       VALIDATION_ERROR: 400,
     };
     const status = statuses[result.code] ?? 503;

@@ -1,93 +1,67 @@
 "use client";
-
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-
-export default function PaymentActions({
-  paymentId,
-  orderId,
-}: {
-  paymentId: string;
-  orderId: string;
-}) {
+import { adminRequest, errorText } from "@/features/admin/http";
+export default function PaymentActions({ paymentId }: { paymentId: string }) {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleVerify() {
-    if (!confirm("Apakah Anda yakin ingin memverifikasi pembayaran ini?"))
-      return;
-    setIsSubmitting(true);
-    setError(null);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState("");
+  async function run(action: "verify" | "reject", body: unknown) {
+    setBusy(true);
+    setError("");
+    setMessage("");
     try {
-      const res = await fetch(`/api/admin/payments/${paymentId}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(
-          data.error?.message || "Gagal memverifikasi pembayaran",
-        );
-      }
+      await adminRequest(`/api/admin/payments/${paymentId}/${action}`, body);
+      setMessage(
+        action === "verify"
+          ? "Pembayaran terverifikasi. Pesanan siap diproses."
+          : "Pembayaran ditolak. Pembeli dapat mengirim ulang bukti sebelum batas pembayaran.",
+      );
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+    } catch (e) {
+      setError(errorText(e));
     } finally {
-      setIsSubmitting(false);
+      setBusy(false);
     }
   }
-
-  async function handleReject() {
-    const reason = prompt("Masukkan alasan penolakan:");
-    if (!reason) return;
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/payments/${paymentId}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, reason }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error?.message || "Gagal menolak pembayaran");
-      }
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsSubmitting(false);
-    }
+  function reject(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const reason = String(new FormData(e.currentTarget).get("reason") ?? "");
+    if (window.confirm("Tolak bukti pembayaran dengan alasan ini?"))
+      void run("reject", { reason });
   }
-
   return (
-    <div
-      className="payment-actions"
-      style={{ display: "flex", gap: "1rem", flexDirection: "column" }}
-    >
+    <div className="admin-editor">
       {error && (
-        <div className="error-message" style={{ color: "var(--error)" }}>
+        <p role="alert" className="admin-error">
           {error}
-        </div>
+        </p>
       )}
-      <div style={{ display: "flex", gap: "1rem" }}>
-        <button
-          className="button button-primary"
-          onClick={handleVerify}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Memproses..." : "Verifikasi Pembayaran"}
-        </button>
-        <button
-          className="button button-secondary"
-          onClick={handleReject}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Memproses..." : "Tolak Pembayaran"}
-        </button>
-      </div>
+      {message && <p role="status">{message}</p>}
+      <button
+        className="primary-action"
+        disabled={busy}
+        onClick={() => {
+          if (
+            window.confirm(
+              "Konfirmasi dana telah diterima sesuai total pesanan?",
+            )
+          )
+            void run("verify", {});
+        }}
+      >
+        Verifikasi pembayaran
+      </button>
+      <form onSubmit={reject}>
+        <fieldset disabled={busy}>
+          <label>
+            Alasan penolakan
+            <textarea name="reason" required maxLength={1000} />
+          </label>
+          <button className="text-link">Tolak pembayaran</button>
+        </fieldset>
+      </form>
     </div>
   );
 }

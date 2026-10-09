@@ -11,7 +11,12 @@ export async function GET(
   try {
     const { id } = await params;
     const { url } = await getAdminPaymentProofUrl(id);
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Referrer-Policy": "no-referrer",
+      },
+    });
   } catch (error) {
     const apiError = toApiError(error);
     const status =
@@ -22,6 +27,9 @@ export async function GET(
           : apiError.code === "NOT_FOUND"
             ? 404
             : 500;
-    return NextResponse.json(apiError, { status });
+    return NextResponse.json(apiError, {
+      status,
+      headers: { "Cache-Control": "no-store" },
+    });
   }
 }

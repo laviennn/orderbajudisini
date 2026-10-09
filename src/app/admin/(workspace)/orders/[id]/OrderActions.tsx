@@ -1,192 +1,138 @@
 "use client";
-
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-
+import type { OrderState } from "@/lib/domain/states";
+import { adminRequest, errorText } from "@/features/admin/http";
 export default function OrderActions({
   orderId,
   status,
   defaultCourier,
   defaultService,
+  trackingNumber,
+  canUpdate,
+  canShip,
 }: {
   orderId: string;
-  status: string;
+  status: OrderState;
   defaultCourier: string;
   defaultService: string;
+  trackingNumber: string | null;
+  canUpdate: boolean;
+  canShip: boolean;
 }) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showShipForm, setShowShipForm] = useState(false);
-  const [shipData, setShipData] = useState({
-    courier: defaultCourier,
-    service: defaultService,
-    trackingNumber: "",
-    shippedAt: new Date().toISOString().substring(0, 16),
-  });
-
-  const handleAction = async (action: "process" | "complete") => {
-    if (!confirm(`Are you sure you want to ${action} this order?`)) return;
-
-    setIsLoading(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  async function run(action: string, body: unknown = {}) {
+    setBusy(true);
+    setError("");
+    setMessage("");
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/${action}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await adminRequest(`/api/admin/orders/${orderId}/${action}`, body);
+      setMessage("Perubahan pesanan tersimpan.");
       router.refresh();
-    } catch (err) {
-      alert(
-        `Failed to ${action} order: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    } catch (e) {
+      setError(errorText(e));
     } finally {
-      setIsLoading(false);
+      setBusy(false);
     }
-  };
-
-  const handleShip = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!shipData.trackingNumber.trim()) {
-      alert("Nomor resi wajib diisi");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/admin/orders/${orderId}/ship`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...shipData,
-          shippedAt: new Date(shipData.shippedAt).toISOString(),
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setShowShipForm(false);
-      router.refresh();
-    } catch (err) {
-      alert(
-        `Failed to ship order: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  }
+  function ship(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    if (window.confirm("Simpan informasi pengiriman ini?"))
+      void run("ship", Object.fromEntries(data));
+  }
   return (
-    <div>
-      {status === "payment_verified" && (
-        <button
-          className="btn btn-primary"
-          onClick={() => handleAction("process")}
-          disabled={isLoading}
-        >
-          Proses Pesanan
-        </button>
+    <section className="admin-editor" aria-label="Tindakan pesanan">
+      {error && (
+        <p role="alert" className="admin-error">
+          {error}
+        </p>
       )}
-
-      {status === "processing" && (
-        <>
+      {message && <p role="status">{message}</p>}
+      <div className="editor-actions">
+        {canUpdate && status === "payment_verified" && (
           <button
-            className="btn btn-primary"
-            onClick={() => setShowShipForm(!showShipForm)}
-            disabled={isLoading}
+            className="primary-action"
+            disabled={busy}
+            onClick={() => void run("process")}
           >
-            Kirim Pesanan
+            Proses pesanan
           </button>
-
-          {showShipForm && (
-            <form
-              onSubmit={handleShip}
-              className="card"
-              style={{ marginTop: "1rem", border: "1px solid #ccc" }}
+        )}
+        {canUpdate && status === "shipped" && (
+          <button
+            className="primary-action"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm("Konfirmasi pesanan telah diterima pembeli?"))
+                void run("complete");
+            }}
+          >
+            Selesaikan pesanan
+          </button>
+        )}
+        {canUpdate &&
+          ["pending_payment", "payment_submitted"].includes(status) && (
+            <button
+              className="text-link"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Batalkan pesanan belum dibayar dan lepaskan reservasi stok?",
+                  )
+                )
+                  void run("cancel");
+              }}
             >
-              <h3>Detail Pengiriman</h3>
-
-              <div className="form-group" style={{ marginBottom: "1rem" }}>
-                <label>Kurir</label>
-                <input
-                  type="text"
-                  value={shipData.courier}
-                  onChange={(e) =>
-                    setShipData({ ...shipData, courier: e.target.value })
-                  }
-                  required
-                  style={{ width: "100%", padding: "0.5rem" }}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: "1rem" }}>
-                <label>Layanan</label>
-                <input
-                  type="text"
-                  value={shipData.service}
-                  onChange={(e) =>
-                    setShipData({ ...shipData, service: e.target.value })
-                  }
-                  required
-                  style={{ width: "100%", padding: "0.5rem" }}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: "1rem" }}>
-                <label>Nomor Resi (Tracking Number)</label>
-                <input
-                  type="text"
-                  value={shipData.trackingNumber}
-                  onChange={(e) =>
-                    setShipData({ ...shipData, trackingNumber: e.target.value })
-                  }
-                  required
-                  style={{ width: "100%", padding: "0.5rem" }}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: "1rem" }}>
-                <label>Waktu Pengiriman</label>
-                <input
-                  type="datetime-local"
-                  value={shipData.shippedAt}
-                  onChange={(e) =>
-                    setShipData({ ...shipData, shippedAt: e.target.value })
-                  }
-                  required
-                  style={{ width: "100%", padding: "0.5rem" }}
-                />
-              </div>
-
-              <div style={{ display: "flex", gap: "1rem" }}>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={isLoading}
-                >
-                  Simpan & Kirim
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setShowShipForm(false)}
-                  disabled={isLoading}
-                >
-                  Batal
-                </button>
-              </div>
-            </form>
+              Batalkan pesanan
+            </button>
           )}
-        </>
+      </div>
+      {canShip && ["processing", "shipped"].includes(status) && (
+        <form onSubmit={ship}>
+          <fieldset disabled={busy}>
+            <legend>
+              {status === "shipped" ? "Koreksi pengiriman" : "Kirim pesanan"}
+            </legend>
+            <div className="editor-grid">
+              <label>
+                Kurir
+                <input
+                  name="courier"
+                  required
+                  maxLength={100}
+                  defaultValue={defaultCourier}
+                />
+              </label>
+              <label>
+                Layanan
+                <input
+                  name="service"
+                  required
+                  maxLength={100}
+                  defaultValue={defaultService}
+                />
+              </label>
+              <label>
+                Nomor resi
+                <input
+                  name="trackingNumber"
+                  required
+                  maxLength={120}
+                  defaultValue={trackingNumber ?? ""}
+                />
+              </label>
+            </div>
+            <button className="primary-action">
+              {busy ? "Menyimpan…" : "Simpan pengiriman"}
+            </button>
+          </fieldset>
+        </form>
       )}
-
-      {status === "shipped" && (
-        <button
-          className="btn btn-primary"
-          onClick={() => handleAction("complete")}
-          disabled={isLoading}
-        >
-          Selesaikan Pesanan
-        </button>
-      )}
-    </div>
+    </section>
   );
 }

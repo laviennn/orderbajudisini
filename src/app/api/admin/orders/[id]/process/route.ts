@@ -1,14 +1,12 @@
-import { NextResponse } from "next/server";
-
-import { AppError } from "@/lib/errors";
+import { z } from "zod";
+import { adminResponse } from "@/server/http/admin";
 import { processOrder } from "@/server/services/admin-orders";
-
-export async function POST(
-  req: Request,
+export function POST(
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (req.method !== "POST") throw new AppError("FORBIDDEN");
-  const { id } = await params;
-  const updated = await processOrder(id);
-  return NextResponse.json(updated);
+  return adminResponse(request, async (body) => {
+    z.object({}).strict().parse(body);
+    return processOrder((await params).id);
+  });
 }

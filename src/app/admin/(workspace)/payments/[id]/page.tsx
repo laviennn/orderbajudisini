@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getPaymentDetail } from "@/server/services/admin-payments";
 import { requirePermission } from "@/server/auth/authorize";
 import { formatIdr } from "@/lib/domain/money";
+import { hasPermission } from "@/server/auth/policy";
+import { paymentLabels, orderLabels } from "@/lib/admin-operations";
 import PaymentActions from "./PaymentActions";
 
 const formatDateTime = (d: Date) =>
@@ -17,7 +19,7 @@ export const metadata: Metadata = { title: "Detail Pembayaran" };
 export default async function PaymentDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("payments.verify");
+  const actor = await requirePermission("payments.read");
 
   const params = await props.params;
 
@@ -35,10 +37,10 @@ export default async function PaymentDetailPage(props: {
     throw err;
   }
 
-  const { payment, order, orderItems } = data;
+  const { payment, order, orderItems, history } = data;
 
   return (
-    <div className="admin-page">
+    <main id="main-content" className="admin-page">
       <header
         className="page-header"
         style={{ display: "flex", gap: "1rem", alignItems: "center" }}
@@ -54,7 +56,7 @@ export default async function PaymentDetailPage(props: {
         <dl className="property-list">
           <div>
             <dt>ID Pesanan</dt>
-            <dd>{order.id}</dd>
+            <dd>{order.orderNumber}</dd>
           </div>
           <div>
             <dt>Nama Pembeli</dt>
@@ -104,8 +106,13 @@ export default async function PaymentDetailPage(props: {
 
       <div className="card" style={{ marginBottom: "2rem" }}>
         <h2>Produk</h2>
-        <div className="table-responsive">
-          <table>
+        <div
+          className="admin-table-scroll"
+          role="region"
+          aria-label="Produk pembayaran"
+          tabIndex={0}
+        >
+          <table className="admin-table">
             <thead>
               <tr>
                 <th>Produk</th>
@@ -141,8 +148,10 @@ export default async function PaymentDetailPage(props: {
           <div>
             <dt>Status</dt>
             <dd>
-              <span className={`status-badge status-${payment.status}`}>
-                {payment.status}
+              <span
+                className={`status-badge status-${paymentLabels[payment.status]}`}
+              >
+                {paymentLabels[payment.status]}
               </span>
             </dd>
           </div>
@@ -184,7 +193,7 @@ export default async function PaymentDetailPage(props: {
           )}
         </dl>
 
-        {payment.proofObjectKey && (
+        {payment.hasProof && (
           <div
             style={{
               marginTop: "1rem",
@@ -208,12 +217,36 @@ export default async function PaymentDetailPage(props: {
         )}
       </div>
 
-      {payment.status === "submitted" && (
-        <div className="card">
-          <h2>Tindakan</h2>
-          <PaymentActions paymentId={payment.id} orderId={order.id} />
-        </div>
-      )}
-    </div>
+      <section>
+        <h2>Hasil pemeriksaan</h2>
+        <p>{paymentLabels[payment.status]}</p>
+        {payment.verifiedAt && (
+          <p>
+            Diverifikasi {formatDateTime(payment.verifiedAt)} oleh{" "}
+            {payment.verifier ?? "Staf"}.
+          </p>
+        )}
+        {hasPermission(actor, "orders.read") && (
+          <Link className="text-link" href={`/admin/orders/${order.id}`}>
+            Buka pesanan
+          </Link>
+        )}
+        <h2>Riwayat pesanan</h2>
+        <ol className="admin-recent">
+          {history.map((row) => (
+            <li key={row.id}>
+              {formatDateTime(row.createdAt)} · {orderLabels[row.to]}
+            </li>
+          ))}
+        </ol>
+      </section>
+      {payment.status === "submitted" &&
+        hasPermission(actor, "payments.verify") && (
+          <div className="card">
+            <h2>Tindakan</h2>
+            <PaymentActions paymentId={payment.id} />
+          </div>
+        )}
+    </main>
   );
 }

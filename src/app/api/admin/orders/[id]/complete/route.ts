@@ -1,15 +1,12 @@
-import { invalidateInventory } from "@/server/services/catalog-cache";
 import { z } from "zod";
 import { adminResponse } from "@/server/http/admin";
-import { verifyAdminPayment } from "@/server/services/admin-payments";
+import { completeOrder } from "@/server/services/admin-orders";
 export function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   return adminResponse(request, async (body) => {
     z.object({}).strict().parse(body);
-    const result = await verifyAdminPayment((await params).id);
-    invalidateInventory();
-    return result;
+    return completeOrder((await params).id);
   });
 }

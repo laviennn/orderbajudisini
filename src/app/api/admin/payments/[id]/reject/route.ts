@@ -1,13 +1,15 @@
-import { NextRequest } from "next/server";
-import { rejectPayment } from "@/server/services/payments";
-import { apiResponse } from "@/server/http/api";
-
-export async function POST(
-  request: NextRequest,
+import { z } from "zod";
+import { adminResponse } from "@/server/http/admin";
+import { rejectAdminPayment } from "@/server/services/admin-payments";
+export function POST(
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  return apiResponse(request, async (body: unknown) => {
-    return rejectPayment({ orderId: id, ...(body as Record<string, unknown>) });
+  return adminResponse(request, async (body) => {
+    const data = z
+      .object({ reason: z.string().trim().min(1).max(1000) })
+      .strict()
+      .parse(body);
+    return rejectAdminPayment((await params).id, data.reason);
   });
 }
