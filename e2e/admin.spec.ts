@@ -185,7 +185,9 @@ test("owner manages catalog, real optimized media, metadata and publication", as
   await expect(publicPage.getByText(/65\.000/).first()).toBeVisible();
   await publicPage.goto("/products?q=TEST+Browser+Jacket");
   await expect(
-    publicPage.getByRole("link", { name: /TEST Browser Jacket/ }).first(),
+    publicPage
+      .getByRole("list", { name: "Produk", exact: true })
+      .getByRole("link", { name: /TEST Browser Jacket/ }),
   ).toBeVisible();
   await page.getByLabel("Harga (Rp)", { exact: true }).fill("72000");
   await page
@@ -209,6 +211,12 @@ test("owner manages catalog, real optimized media, metadata and publication", as
       .getByRole("img", { name: "TEST jacket front", exact: true })
       .first(),
   ).toBeVisible();
+  await publicPage.goto("/products?q=TEST+Browser+Jacket");
+  await expect(
+    publicPage
+      .getByRole("list", { name: "Produk", exact: true })
+      .getByRole("link", { name: /TEST Browser Jacket/ }),
+  ).toContainText("72.000");
   await publicPage.screenshot({
     path: "test-results/admin-storefront-result.png",
     fullPage: true,
@@ -241,8 +249,23 @@ test("owner manages catalog, real optimized media, metadata and publication", as
     publicPage.locator('meta[name="robots"][content*="noindex"]').first(),
   ).toBeAttached();
   await publicPage.goto("/products?q=TEST+Browser+Jacket");
+  // The search-filter removal link intentionally retains the product name.
+  // Wait for real results, then assert product links rather than every named link.
   await expect(
-    publicPage.getByRole("link", { name: /TEST Browser Jacket/ }),
+    publicPage.getByRole("heading", {
+      name: "Belum ada produk yang sesuai.",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(publicPage.locator(".results-note")).toContainText("0 produk");
+  await expect(
+    publicPage.getByRole("link", {
+      name: "Hapus filter Pencarian TEST Browser Jacket",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "/products");
+  await expect(
+    publicPage.locator('a[href="/products/test-browser-jacket"]'),
   ).toHaveCount(0);
 });
 
@@ -310,6 +333,25 @@ test("owner creates and edits a category through the application", async ({
   await expect(
     page.getByText("Kategori tersimpan.", { exact: true }),
   ).toBeVisible();
+  const publicPage = await page.context().newPage();
+  await publicPage.goto("/category/test-browser-category");
+  await expect(
+    publicPage.getByRole("heading", {
+      name: "TEST Browser Category",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await publicPage.goto("/products");
+  await expect(
+    publicPage.getByRole("option", {
+      name: "TEST Browser Category",
+      exact: true,
+    }),
+  ).toBeAttached();
+  const beforeSitemap = await page.request.get("/sitemaps/0");
+  expect(await beforeSitemap.text()).toContain(
+    "/category/test-browser-category</loc>",
+  );
   await page
     .getByRole("button", { name: "TEST Browser Category", exact: true })
     .click();
@@ -339,4 +381,176 @@ test("owner creates and edits a category through the application", async ({
     path: "test-results/admin-category.png",
     fullPage: true,
   });
+  await publicPage.goto("/category/test-browser-category");
+  await expect(
+    publicPage.getByRole("heading", { name: "Halaman tidak ditemukan." }),
+  ).toBeVisible();
+  await publicPage.goto("/products");
+  await expect(
+    publicPage.getByRole("heading", { name: "Hasil produk", exact: true }),
+  ).toBeAttached();
+  await expect(
+    publicPage.getByRole("option", {
+      name: "TEST Browser Category",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  const inactiveSitemap = await page.request.get("/sitemaps/0");
+  expect(await inactiveSitemap.text()).not.toContain(
+    "/category/test-browser-category</loc>",
+  );
+
+  await page.getByLabel("Kategori aktif", { exact: true }).check();
+  await page
+    .getByLabel("Slug kategori", { exact: true })
+    .fill("test-browser-category-renamed");
+  await page.locator('input[name="confirmSlugChange"]').check();
+  await page
+    .getByRole("button", { name: "Simpan kategori", exact: true })
+    .click();
+  await expect(
+    page.getByText("Kategori tersimpan.", { exact: true }),
+  ).toBeVisible();
+  await publicPage.goto("/category/test-browser-category");
+  await expect(
+    publicPage.getByRole("heading", { name: "Halaman tidak ditemukan." }),
+  ).toBeVisible();
+  await publicPage.goto("/category/test-browser-category-renamed");
+  await expect(
+    publicPage.getByRole("heading", {
+      name: "TEST Browser Category",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(publicPage).toHaveTitle(/TEST category title/);
+  await publicPage.goto("/products");
+  await expect(
+    publicPage.getByRole("option", {
+      name: "TEST Browser Category",
+      exact: true,
+    }),
+  ).toHaveAttribute("value", "test-browser-category-renamed");
+  const renamedSitemap = await page.request.get("/sitemaps/0");
+  const sitemapBody = await renamedSitemap.text();
+  expect(sitemapBody).toContain(
+    "/category/test-browser-category-renamed</loc>",
+  );
+  expect(sitemapBody).not.toContain("/category/test-browser-category</loc>");
+});
+
+test("warmed catalog reflects publishing, URL edits, unpublishing and republishing", async ({
+  page,
+  context,
+}) => {
+  // This draft fixture is not used by the checkout or other admin tests.
+  const id = "10000000-0000-4000-8000-000000000032";
+  await page.goto("/admin/login");
+  await page.getByLabel("Email staf").fill("owner-browser@test.invalid");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill("TEST owner browser passphrase");
+  await page.getByRole("button", { name: "Masuk", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  const storefront = await context.newPage();
+  const paths = [
+    "/products?q=TEST+Kemeja+32",
+    "/category/test-kemeja?q=TEST+Kemeja+32",
+  ];
+  let slug = "test-kemeja-32";
+  async function catalog(visible: boolean) {
+    for (const path of paths) {
+      await storefront.goto(path);
+      await expect(
+        storefront.getByRole("heading", { name: "Hasil produk", exact: true }),
+      ).toBeAttached();
+      const link = storefront.locator(
+        `.product-grid a[href="/products/${slug}"]`,
+      );
+      if (visible) await expect(link).toBeVisible();
+      else {
+        await expect(
+          storefront.getByRole("heading", {
+            name: "Belum ada produk yang sesuai.",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(link).toHaveCount(0);
+      }
+    }
+  }
+  async function status(action: "publish" | "draft") {
+    const current = await page.request.get(`/api/admin/products/${id}`);
+    expect(current.ok()).toBe(true);
+    const { updatedAt } = await current.json();
+    const response = await page.request.post(
+      `/api/admin/products/${id}/status`,
+      {
+        headers: { Origin: "http://127.0.0.1:3100" },
+        data: { action, updatedAt },
+      },
+    );
+    expect(response.status()).toBe(200);
+  }
+  async function sitemap(visible: boolean) {
+    const response = await page.request.get("/sitemaps/0");
+    expect(response.ok()).toBe(true);
+    const body = await response.text();
+    if (visible) expect(body).toContain(`/products/${slug}</loc>`);
+    else expect(body).not.toContain(`/products/${slug}</loc>`);
+  }
+  await catalog(false);
+  await sitemap(false);
+  await storefront.goto(`/products/${slug}`);
+  await expect(
+    storefront.getByRole("heading", { name: "Halaman tidak ditemukan." }),
+  ).toBeVisible();
+  await status("publish");
+  await catalog(true);
+  await sitemap(true);
+  await storefront.goto(`/products/${slug}`);
+  await expect(
+    storefront.getByRole("heading", { name: "TEST Kemeja 32", exact: true }),
+  ).toBeVisible();
+
+  await page.goto(`/admin/products/${id}/edit`);
+  await page
+    .getByLabel("Slug / URL", { exact: true })
+    .fill("test-kemeja-32-renamed");
+  await page.locator('input[name="confirmSlugChange"]').check();
+  await page.getByLabel("Harga (Rp)", { exact: true }).fill("57000");
+  await page
+    .getByRole("button", { name: "Simpan perubahan", exact: true })
+    .click();
+  await expect(
+    page.getByText("Produk tersimpan.", { exact: true }),
+  ).toBeVisible();
+  await storefront.goto(`/products/${slug}`);
+  await expect(
+    storefront.getByRole("heading", { name: "Halaman tidak ditemukan." }),
+  ).toBeVisible();
+  slug = "test-kemeja-32-renamed";
+  await catalog(true);
+  await expect(
+    storefront.locator(`.product-grid a[href="/products/${slug}"]`),
+  ).toContainText("57.000");
+  await sitemap(true);
+  const renamedSitemap = await page.request.get("/sitemaps/0");
+  expect(await renamedSitemap.text()).not.toContain(
+    "/products/test-kemeja-32</loc>",
+  );
+  await storefront.goto(`/products/${slug}`);
+  await expect(
+    storefront.getByRole("heading", { name: "TEST Kemeja 32", exact: true }),
+  ).toBeVisible();
+  await expect(storefront.getByText(/57\.000/).first()).toBeVisible();
+  await status("draft");
+  await catalog(false);
+  await sitemap(false);
+  await storefront.goto(`/products/${slug}`);
+  await expect(
+    storefront.getByRole("heading", { name: "Halaman tidak ditemukan." }),
+  ).toBeVisible();
+  await status("publish");
+  await catalog(true);
+  await sitemap(true);
 });
