@@ -310,3 +310,162 @@ it("prevents verification of expired order", async () => {
 
   await expect(verifyPayment(order!.id)).rejects.toThrow(AppError);
 });
+
+vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
+import { POST as verifyRoute } from "@/app/api/admin/payments/[id]/verify/route";
+import { POST as rejectRoute } from "@/app/api/admin/payments/[id]/reject/route";
+import { POST as processRoute } from "@/app/api/admin/orders/[id]/process/route";
+import { POST as shipRoute } from "@/app/api/admin/orders/[id]/ship/route";
+import { POST as completeRoute } from "@/app/api/admin/orders/[id]/complete/route";
+import { POST as cancelRoute } from "@/app/api/admin/orders/[id]/cancel/route";
+import {
+  getAdminOrderDetail,
+  getAdminOrders,
+} from "@/server/services/admin-orders";
+const request = (body: unknown = {}, origin = "http://localhost") =>
+  new Request("http://localhost/api/admin/test", {
+    method: "POST",
+    headers: { host: "localhost", origin, "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+const context = (id: string) => ({ params: Promise.resolve({ id }) });
+it("binds payment verification to payment URL and runs the idempotent fulfillment state machine", async () => {
+  const { order, payment } = await createPaymentReadyOrder(database.db);
+  const oid = context(order!.id),
+    pid = context(payment!.id);
+  expect(
+    (await verifyRoute(request({ orderId: randomUUID() }), pid)).status,
+  ).toBe(400);
+  expect(
+    (await verifyRoute(request({}, "https://other.invalid"), pid)).status,
+  ).toBe(403);
+  const verified = await verifyRoute(request(), pid);
+  expect(verified.status).toBe(200);
+  expect(await verified.json()).toMatchObject({
+    id: payment!.id,
+    status: "verified",
+  });
+  expect((await completeRoute(request(), oid)).status).toBe(409);
+  for (let i = 0; i < 2; i++)
+    expect((await processRoute(request(), oid)).status).toBe(200);
+  expect(
+    (
+      await shipRoute(
+        request({ courier: "TEST", service: "TEST", trackingNumber: " " }),
+        oid,
+      )
+    ).status,
+  ).toBe(400);
+  expect(
+    (
+      await shipRoute(
+        request({
+          courier: "TEST",
+          service: "REG",
+          trackingNumber: "TEST-RESI-1",
+        }),
+        oid,
+      )
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await shipRoute(
+        request({
+          courier: "TEST",
+          service: "REG",
+          trackingNumber: "TEST-RESI-2",
+        }),
+        oid,
+      )
+    ).status,
+  ).toBe(200);
+  for (let i = 0; i < 2; i++)
+    expect((await completeRoute(request(), oid)).status).toBe(200);
+  expect((await cancelRoute(request(), oid)).status).toBe(409);
+  const detail = await getAdminOrderDetail(order!.id);
+  expect(detail.order.status).toBe("completed");
+  expect(detail.shipment).toMatchObject({
+    status: "delivered",
+    trackingNumber: "TEST-RESI-2",
+  });
+  expect(detail.history.filter((h) => h.to === "processing")).toHaveLength(1);
+  expect(detail.history.filter((h) => h.to === "shipped")).toHaveLength(1);
+  expect(detail.history.filter((h) => h.to === "completed")).toHaveLength(1);
+  expect(JSON.stringify(detail)).not.toMatch(
+    /publicToken|proofToken|passwordHash/,
+  );
+  const results = await getAdminOrders({
+    q: order!.orderNumber,
+    status: "completed",
+    pageSize: 1,
+  });
+  expect(results.total).toBe(1);
+  expect(results.items[0]?.id).toBe(order!.id);
+});
+it("rejects by payment ID, ignores no forged order identity, and releases cancelled inventory exactly once", async () => {
+  const { order, payment, product } = await createPaymentReadyOrder(
+    database.db,
+  );
+  const pid = context(payment!.id),
+    oid = context(order!.id);
+  expect(
+    (await rejectRoute(request({ orderId: randomUUID(), reason: "TEST" }), pid))
+      .status,
+  ).toBe(400);
+  expect(
+    (await rejectRoute(request({ reason: "TEST bukti tidak terbaca" }), pid))
+      .status,
+  ).toBe(200);
+  const results = await Promise.all([
+    cancelRoute(request(), oid),
+    cancelRoute(request(), oid),
+  ]);
+  expect(results.map((r) => r.status)).toEqual([200, 200]);
+  const [updated] = await database.db
+    .select()
+    .from(s.products)
+    .where(eq(s.products.id, product!.id));
+  expect(updated?.quantity).toBe(product!.quantity + 1);
+  const [reservation] = await database.db
+    .select()
+    .from(s.reservations)
+    .where(eq(s.reservations.orderId, order!.id));
+  expect(reservation?.status).toBe("released");
+  const history = await database.db
+    .select()
+    .from(s.orderStatusHistory)
+    .where(eq(s.orderStatusHistory.orderId, order!.id));
+  expect(history.filter((h) => h.toStatus === "cancelled")).toHaveLength(1);
+  const detail = await getPaymentDetail(payment!.id);
+  expect(detail.payment.rejectionReason).toBe("TEST bukti tidak terbaca");
+  expect(JSON.stringify(detail)).not.toMatch(/Token|proofObjectKey/);
+});
+it("rejects insufficient staff permissions and malformed IDs on direct operational routes", async () => {
+  const [role] = await database.db
+    .select()
+    .from(s.roles)
+    .where(eq(s.roles.name, "Catalog Operator"));
+  const [catalog] = await database.db
+    .insert(s.users)
+    .values({
+      name: "TEST Catalog",
+      email: "catalog-admin-ops@test.invalid",
+      roleId: role!.id,
+      status: "active",
+    })
+    .returning();
+  authMock.mockResolvedValue({ user: { id: catalog!.id, sessionVersion: 0 } });
+  expect((await processRoute(request(), context(randomUUID()))).status).toBe(
+    403,
+  );
+  expect((await verifyRoute(request(), context(randomUUID()))).status).toBe(
+    403,
+  );
+  authMock.mockResolvedValue({ user: { id: adminId, sessionVersion: 0 } });
+  expect((await processRoute(request(), context("bad-id"))).status).toBe(400);
+  authMock.mockResolvedValue(null);
+  expect((await cancelRoute(request(), context(randomUUID()))).status).toBe(
+    401,
+  );
+});

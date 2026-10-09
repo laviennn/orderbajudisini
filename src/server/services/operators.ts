@@ -1,10 +1,13 @@
 import "server-only";
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, ne, sql, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { withStaff } from "@/server/auth/authorize";
 import { hashPassword, passwordSchema } from "@/server/auth/password";
-import { roles, users } from "@/server/db/schema";
+import type { Transaction } from "@/server/db/operations";
+import type { Principal } from "@/server/auth/policy";
+import { listInput, searchPattern } from "@/lib/admin-operations";
+import { roles, users, permissions, rolePermissions } from "@/server/db/schema";
 import { writeAudit } from "./audit";
 const publicFields = {
   id: users.id,
@@ -14,6 +17,7 @@ const publicFields = {
   status: users.status,
   lastLoginAt: users.lastLoginAt,
   createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
 };
 export const operatorInput = z
   .object({
@@ -58,6 +62,7 @@ export async function createOperator(input: unknown) {
         .from(roles)
         .where(eq(roles.id, data.roleId));
       if (!role) throw new AppError("NOT_FOUND");
+      await assertManageRole(tx, actor, role.id);
       const [user] = await tx
         .insert(users)
         .values({
@@ -90,6 +95,7 @@ export async function updateOperator(input: unknown) {
           id: z.uuid(),
           roleId: z.uuid().optional(),
           status: z.enum(["active", "inactive"]).optional(),
+          updatedAt: z.iso.datetime().optional(),
         })
         .strict()
         .refine((v) => v.roleId !== undefined || v.status !== undefined)
@@ -100,11 +106,18 @@ export async function updateOperator(input: unknown) {
         .innerJoin(roles, eq(users.roleId, roles.id))
         .where(eq(users.id, data.id));
       if (!current) throw new AppError("NOT_FOUND");
+      await assertManageRole(tx, actor, current.user.roleId);
+      if (
+        data.updatedAt &&
+        new Date(data.updatedAt).getTime() !== current.user.updatedAt.getTime()
+      )
+        throw new AppError("CONFLICT");
       const [role] = await tx
         .select()
         .from(roles)
         .where(eq(roles.id, data.roleId ?? current.user.roleId));
       if (!role) throw new AppError("NOT_FOUND");
+      await assertManageRole(tx, actor, role.id);
       const status = data.status ?? current.user.status;
       if (
         current.owner &&
@@ -153,6 +166,96 @@ export async function updateOperator(input: unknown) {
           entityId: data.id,
         });
       return { id: data.id, changed: true };
+    },
+    true,
+  );
+}
+
+async function assertManageRole(
+  tx: Transaction,
+  actor: Principal,
+  roleId: string,
+) {
+  const grants = await tx
+    .select({ key: permissions.key })
+    .from(rolePermissions)
+    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .where(eq(rolePermissions.roleId, roleId));
+  if (grants.some((grant) => !actor.permissions.includes(grant.key)))
+    throw new AppError("FORBIDDEN");
+}
+export async function operatorDirectory(input: unknown = {}) {
+  return withStaff("operators.read", async (tx, actor) => {
+    const f = listInput
+      .extend({
+        status: z.enum(["", "active", "inactive"]).catch("").default(""),
+      })
+      .parse(input);
+    const q = searchPattern(f.q);
+    const where = and(
+      f.status ? eq(users.status, f.status) : undefined,
+      f.q ? or(ilike(users.name, q), ilike(users.email, q)) : undefined,
+    );
+    const items = await tx
+      .select({ ...publicFields, roleName: roles.name })
+      .from(users)
+      .innerJoin(roles, eq(users.roleId, roles.id))
+      .where(where)
+      .orderBy(asc(users.name), asc(users.id))
+      .limit(f.pageSize)
+      .offset((f.page - 1) * f.pageSize);
+    const [count] = await tx
+      .select({ count: sql<number>`count(*)::integer` })
+      .from(users)
+      .where(where);
+    const roleRows = await tx
+      .select()
+      .from(roles)
+      .orderBy(asc(roles.name))
+      .limit(100);
+    const grants = await tx
+      .select({ roleId: rolePermissions.roleId, key: permissions.key })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId));
+    const choices = roleRows
+      .filter((role) =>
+        grants
+          .filter((g) => g.roleId === role.id)
+          .every((g) => actor.permissions.includes(g.key)),
+      )
+      .map((role) => ({ id: role.id, name: role.name }));
+    return { items, roles: choices, total: count?.count ?? 0, ...f };
+  });
+}
+export async function resetOperatorPassword(input: unknown) {
+  return withStaff(
+    "operators.manage",
+    async (tx, actor) => {
+      const data = z
+        .object({ id: z.uuid(), password: passwordSchema })
+        .strict()
+        .parse(input);
+      const [current] = await tx
+        .select({ id: users.id, roleId: users.roleId })
+        .from(users)
+        .where(eq(users.id, data.id));
+      if (!current) throw new AppError("NOT_FOUND");
+      await assertManageRole(tx, actor, current.roleId);
+      await tx
+        .update(users)
+        .set({
+          passwordHash: await hashPassword(data.password),
+          sessionVersion: sql`${users.sessionVersion}+1`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, data.id));
+      await writeAudit(tx, {
+        actorId: actor.id,
+        action: "operator.password_reset",
+        entityType: "user",
+        entityId: data.id,
+      });
+      return { id: data.id };
     },
     true,
   );

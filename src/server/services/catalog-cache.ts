@@ -17,3 +17,8 @@ export function invalidateCategories() {
   ])
     revalidateTag(tag, { expire: 0 });
 }
+// Payment verification/cancellation may affect multiple product reservations.
+export function invalidateInventory() {
+  for (const tag of ["catalog", "catalog-products", "sitemap"])
+    revalidateTag(tag, { expire: 0 });
+}

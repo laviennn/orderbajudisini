@@ -12,6 +12,8 @@ export async function recordShipment(input: unknown) {
       .object({
         orderId: z.uuid(),
         trackingNumber: z.string().trim().min(1).max(120),
+        courier: z.string().trim().min(1).max(100).optional(),
+        service: z.string().trim().min(1).max(100).optional(),
       })
       .strict()
       .parse(input);
@@ -27,8 +29,8 @@ export async function recordShipment(input: unknown) {
       .insert(shipments)
       .values({
         orderId: order.id,
-        courier: order.shippingCourier,
-        service: order.shippingService,
+        courier: data.courier ?? order.shippingCourier,
+        service: data.service ?? order.shippingService,
         trackingNumber: data.trackingNumber,
         status: "shipped",
         shippedAt: new Date(),
@@ -37,6 +39,10 @@ export async function recordShipment(input: unknown) {
       .onConflictDoUpdate({
         target: shipments.orderId,
         set: {
+          courier: data.courier ?? order.shippingCourier,
+          service: data.service ?? order.shippingService,
+          status: "shipped",
+          ...(order.status === "processing" ? { shippedAt: new Date() } : {}),
           trackingNumber: data.trackingNumber,
           updatedBy: actor.id,
           updatedAt: new Date(),
@@ -49,7 +55,7 @@ export async function recordShipment(input: unknown) {
       action: "tracking.changed",
       entityType: "order",
       entityId: order.id,
-      metadata: { changedFields: ["trackingNumber"] },
+      metadata: { changedFields: ["trackingNumber", "courier", "service"] },
     });
     return { id: order.id, status: "shipped" as const };
   });

@@ -1,168 +1,79 @@
-import { Metadata } from "next";
 import Link from "next/link";
 import { getPaymentQueue } from "@/server/services/admin-payments";
-import { requirePermission } from "@/server/auth/authorize";
 import { formatIdr } from "@/lib/domain/money";
-
-const formatDateTime = (d: Date) =>
-  new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
-
-export const metadata: Metadata = { title: "Verifikasi Pembayaran" };
-
-export default async function PaymentQueuePage({
+import { paymentLabels, dateTime } from "@/lib/admin-operations";
+import { AdminPagination } from "@/features/admin/Pagination";
+export default async function PaymentQueue({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  await requirePermission("payments.verify");
-
-  const query = await searchParams;
-  const statusParam = query.status as
-    "pending" | "submitted" | "verified" | "rejected" | undefined;
-  const statusFilter = [
-    "pending",
-    "submitted",
-    "verified",
-    "rejected",
-  ].includes(statusParam!)
-    ? statusParam
-    : "submitted";
-
-  const page = parseInt(query.page || "1", 10) || 1;
-  const data = await getPaymentQueue({
-    status: statusFilter,
-    page,
-    pageSize: 20,
-  });
-
+  const data = await getPaymentQueue(await searchParams);
   return (
-    <div className="admin-page">
-      <header className="page-header">
-        <h1>Verifikasi Pembayaran</h1>
-      </header>
-
-      <div className="card">
-        <div
-          className="card-header"
-          style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}
-        >
-          <Link
-            href="/admin/payments?status=submitted"
-            className={`button ${statusFilter === "submitted" ? "button-primary" : "button-secondary"}`}
-          >
-            Menunggu Verifikasi
-          </Link>
-          <Link
-            href="/admin/payments?status=verified"
-            className={`button ${statusFilter === "verified" ? "button-primary" : "button-secondary"}`}
-          >
-            Terverifikasi
-          </Link>
-          <Link
-            href="/admin/payments?status=rejected"
-            className={`button ${statusFilter === "rejected" ? "button-primary" : "button-secondary"}`}
-          >
-            Ditolak
-          </Link>
-          <Link
-            href="/admin/payments?status=pending"
-            className={`button ${statusFilter === "pending" ? "button-primary" : "button-secondary"}`}
-          >
-            Menunggu Pembayaran
-          </Link>
-        </div>
-
-        {data.items.length === 0 ? (
-          <p className="empty-state">Tidak ada pembayaran.</p>
-        ) : (
-          <div className="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>Waktu</th>
-                  <th>Order</th>
-                  <th>Pembeli</th>
-                  <th>Jumlah</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((item) => (
-                  <tr key={item.paymentId}>
-                    <td>
-                      {item.submittedAt
-                        ? formatDateTime(item.submittedAt)
-                        : "-"}
-                    </td>
-                    <td>
-                      <Link href={`/admin/payments/${item.paymentId}`}>
-                        {item.orderId.substring(0, 8)}
-                      </Link>
-                    </td>
-                    <td>
-                      {(() => {
-                        try {
-                          return (
-                            ((item.addressSnapshot as Record<string, unknown>)
-                              ?.recipientName as string) || "-"
-                          );
-                        } catch {
-                          return "-";
-                        }
-                      })()}
-                    </td>
-                    <td>{formatIdr(item.expectedAmount || 0)}</td>
-                    <td>
-                      <span className={`status-badge status-${item.status}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td>
-                      <Link
-                        href={`/admin/payments/${item.paymentId}`}
-                        className="text-link"
-                      >
-                        Lihat Detail
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {data.totalPages > 1 && (
-          <div
-            className="pagination"
-            style={{ marginTop: "1rem", display: "flex", gap: "1rem" }}
-          >
-            {data.page > 1 && (
-              <Link
-                href={`/admin/payments?status=${statusFilter}&page=${data.page - 1}`}
-                className="text-link"
-              >
-                &larr; Sebelumnya
-              </Link>
-            )}
-            <span>
-              Halaman {data.page} dari {data.totalPages}
-            </span>
-            {data.page < data.totalPages && (
-              <Link
-                href={`/admin/payments?status=${statusFilter}&page=${data.page + 1}`}
-                className="text-link"
-              >
-                Selanjutnya &rarr;
-              </Link>
-            )}
-          </div>
-        )}
+    <main id="main-content">
+      <h1>Pembayaran</h1>
+      <p>Periksa bukti dan tujuan transfer sebelum memverifikasi pembayaran.</p>
+      <form className="admin-filters" action="/admin/payments">
+        <label>
+          Cari nomor pesanan / penerima
+          <input name="q" maxLength={80} defaultValue={data.q} />
+        </label>
+        <label>
+          Status pembayaran
+          <select name="status" defaultValue={data.status}>
+            <option value="">Semua status</option>
+            {Object.entries(paymentLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button className="primary-action">Terapkan</button>
+      </form>
+      <div
+        className="admin-table-scroll"
+        role="region"
+        aria-label="Daftar pembayaran"
+        tabIndex={0}
+      >
+        <table className="admin-table">
+          <thead>
+            <tr>
+              {["Pesanan", "Penerima", "Jumlah", "Status", "Bukti dikirim"].map(
+                (label) => (
+                  <th scope="col" key={label}>
+                    {label}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {data.items.map((item) => (
+              <tr key={item.paymentId}>
+                <td>
+                  <Link href={`/admin/payments/${item.paymentId}`}>
+                    {item.orderNumber}
+                  </Link>
+                </td>
+                <td>{item.addressSnapshot.recipientName}</td>
+                <td>{formatIdr(item.expectedAmount)}</td>
+                <td>{paymentLabels[item.status]}</td>
+                <td>{dateTime(item.submittedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+      {!data.items.length && (
+        <p className="empty-state">Tidak ada pembayaran yang sesuai.</p>
+      )}
+      <AdminPagination
+        path="/admin/payments"
+        {...data}
+        filters={{ q: data.q, status: data.status }}
+      />
+    </main>
   );
 }

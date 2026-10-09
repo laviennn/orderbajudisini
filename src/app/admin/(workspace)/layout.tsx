@@ -35,58 +35,73 @@ export default async function AdminWorkspace({
       </header>
       <div className="admin-workspace">
         <nav className="admin-nav" aria-label="Menu administrasi">
-          <Link href="/admin">Dashboard</Link>
-
-          <div className="nav-group">Katalog</div>
-          {hasPermission(actor, "products.read") && (
-            <Link href="/admin/products">Produk</Link>
-          )}
-          {hasPermission(actor, "categories.read") && (
-            <Link href="/admin/categories">Kategori</Link>
-          )}
-          {hasPermission(actor, "reviews.read") && (
-            <Link href="/admin/reviews">Ulasan</Link>
-          )}
-
-          <div className="nav-group">Pesanan</div>
-          {hasPermission(actor, "orders.read") && (
-            <Link href="/admin/orders">Semua Pesanan</Link>
-          )}
-          {hasPermission(actor, "payments.verify") && (
-            <Link href="/admin/payments">Verifikasi Pembayaran</Link>
-          )}
-          {hasPermission(actor, "shipments.read") && (
-            <Link href="/admin/shipments">Pengiriman</Link>
-          )}
-
-          <div className="nav-group">Konten & Pemasaran</div>
-          {hasPermission(actor, "content.read") && (
-            <Link href="/admin/banners">Banner</Link>
-          )}
-          {hasPermission(actor, "promotions.read") && (
-            <Link href="/admin/promotions">Promosi</Link>
-          )}
-          {hasPermission(actor, "media.read") && (
-            <Link href="/admin/media">Media Library</Link>
-          )}
-          {hasPermission(actor, "seo.read") && (
-            <Link href="/admin/seo">Pengaturan SEO</Link>
-          )}
-
-          <div className="nav-group">Pengaturan</div>
-          {hasPermission(actor, "settings.read") && (
-            <>
-              <Link href="/admin/payment-methods">Metode Pembayaran</Link>
-              <Link href="/admin/store-settings">Pengaturan Toko</Link>
-              <Link href="/admin/social-media">Media Sosial</Link>
-            </>
-          )}
-          {hasPermission(actor, "operators.read") && (
-            <Link href="/admin/operators">Operator</Link>
-          )}
-          {hasPermission(actor, "audit.read") && (
-            <Link href="/admin/audit-logs">Log Audit</Link>
-          )}
+          <Link href="/admin">Ringkasan</Link>
+          {(
+            [
+              {
+                name: "Katalog",
+                links: [
+                  ["/admin/products", "Produk", ["products.read"]],
+                  ["/admin/categories", "Kategori", ["categories.read"]],
+                  ["/admin/reviews", "Ulasan", ["reviews.read"]],
+                ],
+              },
+              {
+                name: "Pesanan & pembayaran",
+                links: [
+                  ["/admin/orders", "Semua pesanan", ["orders.read"]],
+                  ["/admin/payments", "Pembayaran", ["payments.read"]],
+                  [
+                    "/admin/orders?status=processing",
+                    "Antrean pengiriman",
+                    ["orders.read", "shipments.read"],
+                  ],
+                ],
+              },
+              {
+                name: "Pemasaran",
+                links: [
+                  ["/admin/banners", "Banner", ["content.read"]],
+                  ["/admin/promotions", "Promosi", ["promotions.read"]],
+                  ["/admin/seo", "Pengaturan SEO", ["seo.read"]],
+                ],
+              },
+              {
+                name: "Pengaturan & akses",
+                links: [
+                  [
+                    "/admin/payment-methods",
+                    "Metode pembayaran",
+                    ["settings.read"],
+                  ],
+                  [
+                    "/admin/store-settings",
+                    "Pengaturan toko",
+                    ["settings.read"],
+                  ],
+                  ["/admin/social-media", "Media sosial", ["settings.read"]],
+                  ["/admin/operators", "Staf dan akses", ["operators.read"]],
+                  ["/admin/audit-logs", "Log audit", ["audit.read"]],
+                ],
+              },
+            ] as const
+          ).map((group) => {
+            const links = group.links.filter(([, , permissions]) =>
+              permissions.every((permission) =>
+                hasPermission(actor, permission),
+              ),
+            );
+            return links.length ? (
+              <div className="admin-nav-group" key={group.name}>
+                <div className="nav-group">{group.name}</div>
+                {links.map(([href, label]) => (
+                  <Link key={String(href)} href={String(href)}>
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            ) : null;
+          })}
         </nav>
         <div className="admin-content">{children}</div>
       </div>

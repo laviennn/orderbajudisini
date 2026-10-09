@@ -74,7 +74,10 @@ vi.mock("@/server/storage/r2", () => ({
   getStorage: () => ({
     inspectObject: async (_purpose: string, key: string) => {
       const body = media.get(key);
-      if (!body) throw new Error("TEST missing");
+      if (!body) {
+        const { AppError } = await import("@/lib/errors");
+        throw new AppError("VALIDATION_ERROR");
+      }
       return { bytes: body.length, mime: "image/png" };
     },
     readSiteMedia: async (key: string) => media.get(key),

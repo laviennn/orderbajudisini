@@ -150,6 +150,14 @@ export async function saveProduct(input: unknown) {
         entityId: p.id,
         metadata: { changedFields: Object.keys(values) },
       });
+      if (old && old.quantity !== p.quantity)
+        await writeAudit(tx, {
+          actorId: actor.id,
+          action: "inventory.adjusted",
+          entityType: "product",
+          entityId: p.id,
+          metadata: { previousQuantity: old.quantity, quantity: p.quantity },
+        });
       if (old?.promotionEligible !== p.promotionEligible)
         await writeAudit(tx, {
           actorId: actor.id,
@@ -325,6 +333,7 @@ export async function adminProductList(input: unknown) {
         category: categories.name,
         sizeLabel: products.sizeLabel,
         price: products.price,
+        quantity: products.quantity,
         updatedAt: products.updatedAt,
         image: primaryImage,
       })
@@ -426,4 +435,21 @@ export async function catalogDashboard() {
       .from(products)
       .groupBy(products.status),
   );
+}
+
+export async function getLowInventoryProducts() {
+  return withStaff("products.read", async (tx) => {
+    const rows = await tx
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        quantity: products.quantity,
+      })
+      .from(products)
+      .where(and(eq(products.status, "active"), sql`${products.quantity} <= 1`))
+      .orderBy(asc(products.quantity), asc(products.id))
+      .limit(5);
+    return rows;
+  });
 }
