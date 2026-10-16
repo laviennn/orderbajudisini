@@ -423,9 +423,9 @@ export async function completeProofUpload(publicToken: string, input: unknown) {
 }
 
 export async function resolveProofUrl(proofToken: string) {
-  const sanitized = proofToken?.trim().toLowerCase();
-  if (!sanitized || !/^[a-f0-9]{64}$/.test(sanitized))
-    throw new AppError("VALIDATION_ERROR");
+  const tokenMatch = proofToken?.trim().toLowerCase().match(/[a-f0-9]{64}/);
+  const sanitized = tokenMatch ? tokenMatch[0] : "";
+  if (!sanitized) throw new AppError("VALIDATION_ERROR");
   return databaseOperation(async () => {
     const db = getDatabase();
     const [payment] = await db
@@ -443,9 +443,9 @@ export async function resolveProofUrl(proofToken: string) {
 }
 
 export async function resolveProofFile(proofToken: string) {
-  const sanitized = proofToken?.trim().toLowerCase();
-  if (!sanitized || !/^[a-f0-9]{64}$/.test(sanitized))
-    throw new AppError("VALIDATION_ERROR");
+  const tokenMatch = proofToken?.trim().toLowerCase().match(/[a-f0-9]{64}/);
+  const sanitized = tokenMatch ? tokenMatch[0] : "";
+  if (!sanitized) throw new AppError("VALIDATION_ERROR");
   return databaseOperation(async () => {
     const db = getDatabase();
     const [payment] = await db
