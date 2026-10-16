@@ -27,7 +27,7 @@ export const productEditorInput = z
   .object({
     id: z.uuid().optional(),
     updatedAt: z.iso.datetime().optional(),
-    confirmSlugChange: z.boolean().default(true),
+    confirmSlugChange: z.boolean().default(false),
     name: z.string().trim().min(1).max(200),
     sku: z.string().trim().max(80).nullable().optional(),
     slug: slugInput.nullable().optional(),
