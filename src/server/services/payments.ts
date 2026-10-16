@@ -74,16 +74,7 @@ export async function submitAcceptedPaymentProof(input: unknown) {
           payment.status !== "submitted")
       )
         throw new AppError("INVALID_PAYMENT_TRANSITION");
-      const [fresh] = await tx
-        .select({ id: orders.id })
-        .from(orders)
-        .where(
-          and(
-            eq(orders.id, order.id),
-            gt(orders.paymentDueAt, sql`clock_timestamp()`),
-          ),
-        );
-      if (!fresh) throw new AppError("RESERVATION_EXPIRED");
+
       const accepted = await tx
         .update(paymentProofReceipts)
         .set({ consumedAt: new Date() })

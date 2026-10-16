@@ -1,17 +1,31 @@
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { listBankAccounts, getQrisSettings } from "@/server/services/settings";
 import { getStorage } from "@/server/storage/r2";
 import { QrisEditor } from "@/features/admin/QrisEditor";
+import { BankLogoUpload } from "@/features/admin/BankLogoUpload";
 import { submitBankAccountAction, deleteBankAccountAction } from "./actions";
+import { DeleteBankAccountButton } from "./DeleteBankAccountButton";
 
 export const metadata = { title: "Metode Pembayaran - Admin" };
 
 export default async function PaymentMethodsPage() {
-  await requirePermission("settings.read");
+  await requirePagePermission("settings.read");
   const [bankAccounts, qrisSettings] = await Promise.all([
     listBankAccounts(),
     getQrisSettings(),
   ]);
+
+  const bankAccountsWithLogo = bankAccounts.map((bank) => {
+    let logoUrl: string | null = null;
+    if (bank.logoObjectKey) {
+      try {
+        logoUrl = getStorage().publicMediaUrl(bank.logoObjectKey);
+      } catch {
+        logoUrl = null;
+      }
+    }
+    return { ...bank, logoUrl };
+  });
 
   let qrisImageUrl: string | null = null;
   if (qrisSettings?.imageObjectKey) {
@@ -37,7 +51,7 @@ export default async function PaymentMethodsPage() {
       <section style={{ marginBottom: "3rem" }}>
         <h2 style={{ marginBottom: "1rem" }}>Rekening Bank Transfer</h2>
         <div style={{ display: "grid", gap: "1.5rem", maxWidth: "800px" }}>
-          {bankAccounts.map((bank) => (
+          {bankAccountsWithLogo.map((bank) => (
             <div
               key={bank.id}
               className="admin-editor"
@@ -115,6 +129,11 @@ export default async function PaymentMethodsPage() {
                       maxLength={2000}
                     />
                   </label>
+                  <BankLogoUpload
+                    initialKey={bank.logoObjectKey}
+                    initialUrl={bank.logoUrl}
+                    bankName={bank.bankName}
+                  />
                   <label
                     className="checkbox-label"
                     style={{ marginBottom: "1.25rem" }}
@@ -139,18 +158,7 @@ export default async function PaymentMethodsPage() {
                 style={{ marginTop: "0.75rem" }}
               >
                 <input type="hidden" name="id" value={bank.id} />
-                <button
-                  type="submit"
-                  className="text-link"
-                  style={{ color: "var(--danger)" }}
-                  onClick={(e) => {
-                    if (!confirm("Hapus rekening bank ini?")) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  Hapus Rekening
-                </button>
+                <DeleteBankAccountButton />
               </form>
             </div>
           ))}
@@ -231,6 +239,7 @@ export default async function PaymentMethodsPage() {
                     maxLength={2000}
                   />
                 </label>
+                <BankLogoUpload />
                 <label
                   className="checkbox-label"
                   style={{ marginBottom: "1.25rem" }}

@@ -8,6 +8,13 @@ measurements - condition grade - condition notes - defects - images
 including defect images - availability/status - description - SEO
 metadata
 
+## Pricing & Photo-as-Item Structure
+
+- Standard unit price: **Rp 50.000 / pcs**
+- Bundle pricing: **Rp 100.000 / 3 pcs** (formula: `floor(qty/3)*100.000 + (qty%3)*50.000`)
+- Multi-photo collections: Each photo inside a product drop is uniquely selectable as an item (`Baju #01`, `Baju #02`, etc.), allowing buyers to mix and match multiple garments from the same product drop into their cart.
+
+
 ## Images
 
 Recommended upload policy: - validate MIME and actual file signature -

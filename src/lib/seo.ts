@@ -33,7 +33,7 @@ export function pageMetadata(
       description: description || undefined,
       url: canonical,
       type: "website",
-      ...(image && /^https:\/\//.test(image) ? { images: [image] } : {}),
+      ...(image && /^https?:\/\//.test(image) ? { images: [image] } : {}),
     },
   };
 }

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPaymentDetail } from "@/server/services/admin-payments";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { formatIdr } from "@/lib/domain/money";
 import { hasPermission } from "@/server/auth/policy";
 import { paymentLabels, orderLabels } from "@/lib/admin-operations";
@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: "Detail Pembayaran" };
 export default async function PaymentDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
-  const actor = await requirePermission("payments.read");
+  const actor = await requirePagePermission("payments.read");
 
   const params = await props.params;
 

@@ -1,5 +1,5 @@
 import { operatorDirectory } from "@/server/services/operators";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { OperatorEditor } from "@/features/admin/OperatorEditor";
 import { AdminPagination } from "@/features/admin/Pagination";
@@ -8,7 +8,7 @@ export default async function Operators({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const actor = await requirePermission("operators.read");
+  const actor = await requirePagePermission("operators.read");
   const data = await operatorDirectory(await searchParams);
   return (
     <main id="main-content">

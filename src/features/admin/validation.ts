@@ -5,7 +5,9 @@ const optionalText = (max: number) =>
     .string()
     .trim()
     .max(max)
-    .transform((v) => v || null);
+    .nullable()
+    .optional()
+    .transform((v) => (v ? v.trim() || null : null));
 export const measurementInput = z
   .object({
     key: z
@@ -25,13 +27,19 @@ export const productEditorInput = z
   .object({
     id: z.uuid().optional(),
     updatedAt: z.iso.datetime().optional(),
-    confirmSlugChange: z.boolean().default(false),
+    confirmSlugChange: z.boolean().default(true),
     name: z.string().trim().min(1).max(200),
-    sku: z.string().trim().min(1).max(80),
-    slug: slugInput,
+    sku: z.string().trim().max(80).nullable().optional(),
+    slug: slugInput.nullable().optional(),
     categoryId: z.uuid(),
     brand: optionalText(100),
-    description: z.string().trim().min(1).max(10000),
+    description: z
+      .string()
+      .trim()
+      .max(10000)
+      .nullable()
+      .optional()
+      .transform((v) => v ?? ""),
     shortDescription: optionalText(500),
     price: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     compareAtPrice: z
@@ -39,13 +47,20 @@ export const productEditorInput = z
       .int()
       .nonnegative()
       .max(Number.MAX_SAFE_INTEGER)
-      .nullable(),
+      .nullable()
+      .optional(),
     sizeLabel: optionalText(60),
     conditionGrade: optionalText(80),
-    conditionNotes: z.string().trim().min(1).max(5000),
+    conditionNotes: z
+      .string()
+      .trim()
+      .max(5000)
+      .nullable()
+      .optional()
+      .transform((v) => v ?? ""),
     defectNotes: optionalText(5000),
     quantity: z.number().int().min(0).max(10000),
-    weightGrams: z.number().int().positive().max(100000).nullable(),
+    weightGrams: z.number().int().positive().max(100000).nullable().optional(),
     promotionEligible: z.boolean(),
     seoTitle: optionalText(1000),
     seoDescription: optionalText(3000),

@@ -1,9 +1,9 @@
 import { getAdminSeoSettings } from "@/server/services/settings";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { SeoEditor } from "@/features/admin/SeoEditor";
 export default async function SeoPage() {
-  const actor = await requirePermission("seo.read");
+  const actor = await requirePagePermission("seo.read");
   const initial = await getAdminSeoSettings();
   return (
     <main id="main-content">

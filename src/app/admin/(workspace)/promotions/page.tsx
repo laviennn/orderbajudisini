@@ -1,9 +1,9 @@
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { promotionEditorData } from "@/server/services/promotions";
 import { PromotionEditor } from "@/features/admin/PromotionEditor";
 export default async function Promotions() {
-  const actor = await requirePermission("promotions.read");
+  const actor = await requirePagePermission("promotions.read");
   const data = await promotionEditorData();
   return (
     <main id="main-content">

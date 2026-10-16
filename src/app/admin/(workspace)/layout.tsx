@@ -1,25 +1,13 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
-import { AppError } from "@/lib/errors";
 import { logoutAction } from "../actions";
 export default async function AdminWorkspace({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  let actor;
-  try {
-    actor = await requirePermission("admin.access");
-  } catch (error) {
-    if (
-      error instanceof AppError &&
-      ["UNAUTHENTICATED", "NOT_CONFIGURED"].includes(error.code)
-    )
-      redirect("/admin/login");
-    throw error;
-  }
+  const actor = await requirePagePermission("admin.access");
   return (
     <div className="admin-frame">
       <header className="admin-header">

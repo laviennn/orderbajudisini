@@ -62,7 +62,8 @@ export const readStore = cache(
   unstable_cache(
     async () =>
       databaseOperation(async () => {
-        const [[store], [seo]] = await Promise.all([
+        const now = new Date();
+        const [[store], [seo], [firstBanner]] = await Promise.all([
           getDatabase()
             .select({
               storeName: storeSettings.storeName,
@@ -90,19 +91,59 @@ export const readStore = cache(
             })
             .from(seoSettings)
             .limit(1),
+          getDatabase()
+            .select({
+              imageKey: banners.imageObjectKey,
+              mobileKey: banners.mobileImageObjectKey,
+            })
+            .from(banners)
+            .where(
+              and(
+                eq(banners.active, true),
+                or(isNull(banners.startsAt), lte(banners.startsAt, now)),
+                or(isNull(banners.endsAt), gt(banners.endsAt, now)),
+              ),
+            )
+            .orderBy(asc(banners.sortOrder), asc(banners.id))
+            .limit(1),
         ]);
+        const media = (key: string | null) => {
+          if (!key) return null;
+          try {
+            return getStorage().publicMediaUrl(key);
+          } catch {
+            return null;
+          }
+        };
+        const bannerOgImage =
+          media(firstBanner?.imageKey ?? null) ||
+          media(firstBanner?.mobileKey ?? null);
+        const effectiveDefaultOgImage =
+          bannerOgImage || seo?.defaultOgImage || null;
         return {
           name: store?.storeName || site.name,
-          seo: seo ?? null,
+          seo: seo
+            ? {
+                ...seo,
+                defaultOgImage: effectiveDefaultOgImage,
+              }
+            : effectiveDefaultOgImage
+              ? {
+                  siteTitle: store?.storeName || site.name,
+                  indexingEnabled: true,
+                  pages: [],
+                  titleTemplate: `%s | ${store?.storeName || site.name}`,
+                  defaultDescription: "",
+                  defaultOgImage: effectiveDefaultOgImage,
+                  homepageTitle: null,
+                  homepageDescription: null,
+                }
+              : null,
           details: store
             ? {
                 ...store,
-                logoUrl: store.logoObjectKey
-                  ? getStorage().publicMediaUrl(store.logoObjectKey)
-                  : null,
-                faviconUrl: store.faviconObjectKey
-                  ? getStorage().publicMediaUrl(store.faviconObjectKey)
-                  : null,
+                logoUrl: media(store.logoObjectKey),
+                faviconUrl: media(store.faviconObjectKey),
               }
             : null,
         };
@@ -165,4 +206,10 @@ export const readBanner = unstable_cache(
     }),
   ["banner-v1"],
   options,
+);
+
+export const readAdjacentProducts = unstable_cache(
+  catalog.getAdjacentProducts,
+  ["adjacent-products-v1"],
+  catalogOptions,
 );

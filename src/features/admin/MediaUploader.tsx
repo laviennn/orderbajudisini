@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { adminProduct } from "@/server/services/admin-products";
 import { ProductPhoto } from "@/features/storefront/Interactions";
 import { adminRequest, errorText } from "./http";
+import { AdminModal } from "./AdminModal";
 type Images = Awaited<ReturnType<typeof adminProduct>>["images"];
 type Entry = {
   id: string;
@@ -58,6 +59,10 @@ export function MediaUploader({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [imageToDelete, setImageToDelete] = useState<{
+    id: string;
+    index: number;
+  } | null>(null);
   const urls = useRef<string[]>([]);
   useEffect(
     () => () => urls.current.forEach((url) => URL.revokeObjectURL(url)),
@@ -82,11 +87,19 @@ export function MediaUploader({
       }
       const preview = URL.createObjectURL(file);
       urls.current.push(preview);
+      const photoNumber = images.length + queue.length + entries.length + 1;
+      const baseName = productName?.trim() || "";
+      const autoAlt =
+        photoNumber === 1
+          ? baseName
+          : baseName
+            ? `${baseName} - Foto ${photoNumber}`
+            : `Foto ${photoNumber}`;
       entries.push({
         id: crypto.randomUUID(),
         file,
         preview,
-        altText: `${productName} — foto ${images.length + queue.length + entries.length + 1}`,
+        altText: autoAlt,
         defect: false,
         state: "queued",
         progress: 0,
@@ -193,9 +206,8 @@ export function MediaUploader({
         </button>
       </div>
       <p className="small-note">
-        JPEG, PNG, WebP · maksimal 10 MB, 24 megapiksel, minimal 100px. Foto
-        diproses sekali menjadi tiga ukuran WebP. Foto pertama tanpa penanda
-        cacat menjadi foto utama.
+        JPEG, PNG, WebP · maksimal 10 MB. Foto pertama otomatis menjadi foto
+        utama. Alt text dibuat otomatis dari nama produk.
       </p>
       {error && (
         <p role="alert" className="admin-error">
@@ -244,28 +256,15 @@ export function MediaUploader({
                 </div>
                 <div>
                   <strong>{entry.file.name}</strong>
-                  <label>
-                    Alt text unggahan
-                    <input
-                      value={entry.altText}
-                      maxLength={300}
-                      disabled={busy || Boolean(entry.uploaded)}
-                      onChange={(e) =>
-                        patch(entry.id, { altText: e.target.value })
-                      }
-                    />
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={entry.defect}
-                      disabled={busy || Boolean(entry.uploaded)}
-                      onChange={(e) =>
-                        patch(entry.id, { defect: e.target.checked })
-                      }
-                    />
-                    Foto cacat
-                  </label>
+                  <p
+                    className="small-note"
+                    style={{
+                      margin: "0.25rem 0",
+                      color: "var(--muted-foreground)",
+                    }}
+                  >
+                    Alt text otomatis: <em>&quot;{entry.altText}&quot;</em>
+                  </p>
                   <p role="status">
                     {entry.state === "uploading"
                       ? `Mengunggah ${entry.progress}%`
@@ -327,50 +326,26 @@ export function MediaUploader({
               <ProductPhoto image={image.image} sizes="160px" />
             </div>
             <div>
-              <p>
-                {index + 1}.{" "}
-                {image.isDefectImage
-                  ? "Detail cacat"
-                  : !images.slice(0, index).some((i) => !i.isDefectImage)
-                    ? "Foto utama"
-                    : "Foto produk"}
+              <p style={{ fontWeight: 600, margin: "0 0 0.25rem 0" }}>
+                Foto {index + 1} {index === 0 ? "· Foto Utama" : ""}
               </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const fd = new FormData(e.currentTarget);
-                  void mutate({
-                    action: "edit",
-                    productId,
-                    imageId: image.id,
-                    altText: String(fd.get("altText")),
-                    isDefectImage: fd.get("defect") === "on",
-                  });
+              <p
+                className="small-note"
+                style={{
+                  margin: "0 0 0.5rem 0",
+                  color: "var(--muted-foreground)",
                 }}
               >
-                <label>
-                  Alt text foto {index + 1}
-                  <input
-                    name="altText"
-                    required
-                    maxLength={300}
-                    defaultValue={image.altText}
-                    disabled={!enabled || busy}
-                  />
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    name="defect"
-                    defaultChecked={image.isDefectImage}
-                    disabled={!enabled || busy}
-                  />
-                  Foto cacat
-                </label>
-                <button className="text-link" disabled={!enabled || busy}>
-                  Simpan keterangan
-                </button>
-              </form>
+                Alt text otomatis:{" "}
+                <em>
+                  &quot;
+                  {image.altText ||
+                    (index === 0
+                      ? productName
+                      : `${productName} - Foto ${index + 1}`)}
+                  &quot;
+                </em>
+              </p>
               <div className="media-controls">
                 {[-1, 1].map((direction) => (
                   <button
@@ -396,16 +371,13 @@ export function MediaUploader({
                   </button>
                 ))}
                 <button
+                  type="button"
                   className="text-link"
                   disabled={!enabled || busy}
-                  onClick={() => {
-                    if (window.confirm("Hapus foto beserta semua variannya?"))
-                      void mutate({
-                        action: "remove",
-                        productId,
-                        imageId: image.id,
-                      });
-                  }}
+                  onClick={() =>
+                    setImageToDelete({ id: image.id, index: index + 1 })
+                  }
+                  style={{ color: "var(--danger)" }}
                 >
                   Hapus foto {index + 1}
                 </button>
@@ -415,6 +387,48 @@ export function MediaUploader({
         ))}
       </ol>
       {!images.length && <p>Belum ada foto tersimpan.</p>}
+
+      <AdminModal
+        isOpen={Boolean(imageToDelete)}
+        onClose={() => !busy && setImageToDelete(null)}
+        title="Hapus Foto Produk?"
+        subtitle="Konfirmasi penghapusan foto beserta varian ukurannya"
+        variant="danger"
+        footer={
+          <>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-cancel"
+              disabled={busy}
+              onClick={() => setImageToDelete(null)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-danger"
+              disabled={busy}
+              onClick={async () => {
+                if (!imageToDelete) return;
+                await mutate({
+                  action: "remove",
+                  productId,
+                  imageId: imageToDelete.id,
+                });
+                setImageToDelete(null);
+              }}
+            >
+              {busy ? "Menghapus..." : "Ya, Hapus Foto"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, lineHeight: 1.6 }}>
+          Apakah Anda yakin ingin menghapus foto ke-{imageToDelete?.index}{" "}
+          beserta semua varian ukuran yang di-generate? Tindakan ini tidak dapat
+          dibatalkan.
+        </p>
+      </AdminModal>
     </section>
   );
 }

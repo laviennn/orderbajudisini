@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { WhatsAppIcon } from "./Icons";
 
 export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
   const [loading, setLoading] = useState(false);
@@ -33,30 +34,77 @@ export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
   return (
     <div
       style={{
-        marginTop: "1.5rem",
-        padding: "1.5rem",
-        border: "1px dashed var(--border)",
-        borderRadius: "var(--radius-control)",
-        backgroundColor: "var(--surface-background)",
+        marginTop: "1.25rem",
+        padding: "1.25rem 1.5rem",
+        border: "1px solid #bbf7d0",
+        borderRadius: "8px",
+        backgroundColor: "#f0fdf4",
+        boxShadow: "0 1px 3px rgba(34, 197, 94, 0.08)",
       }}
     >
-      <h3 style={{ marginBottom: "0.5rem" }}>Konfirmasi via WhatsApp</h3>
-      <p
+      <div
         style={{
-          marginBottom: "1rem",
-          fontSize: "0.875rem",
-          color: "var(--muted-foreground)",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          marginBottom: "0.5rem",
         }}
       >
-        Kirim detail pesanan dan tautan bukti pembayaran ke WhatsApp toko untuk
-        membantu proses pengecekan.
+        <div
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            backgroundColor: "#25d366",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#ffffff",
+            flexShrink: 0,
+          }}
+        >
+          <WhatsAppIcon size={18} />
+        </div>
+        <div>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "1rem",
+              fontWeight: 700,
+              color: "#166534",
+            }}
+          >
+            Konfirmasi Pesanan via WhatsApp
+          </h3>
+          <span
+            style={{ fontSize: "0.75rem", color: "#15803d", fontWeight: 500 }}
+          >
+            Respon Cepat &bull; Bantuan Langsung dari Admin
+          </span>
+        </div>
+      </div>
+      <p
+        style={{
+          margin: "0.5rem 0 1rem",
+          fontSize: "0.875rem",
+          color: "#374151",
+          lineHeight: 1.5,
+        }}
+      >
+        Ingin verifikasi lebih cepat atau punya pertanyaan khusus mengenai
+        pesanan Anda? Kirim pesan langsung ke Admin WhatsApp kami dengan pesan
+        otomatis yang sudah terisi.
       </p>
       {error && (
         <div
           style={{
-            color: "var(--error)",
+            color: "var(--danger, #ef4444)",
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            padding: "0.5rem 0.75rem",
+            borderRadius: "6px",
             marginBottom: "1rem",
             fontSize: "0.875rem",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
           }}
         >
           {error}
@@ -64,12 +112,32 @@ export function WhatsAppConfirmation({ publicToken }: { publicToken: string }) {
       )}
       <button
         type="button"
-        className="button button-primary"
-        style={{ width: "100%" }}
+        className="button-whatsapp"
         onClick={handleConfirm}
         disabled={loading}
+        style={{
+          display: "inline-flex",
+          width: "100%",
+          minHeight: "48px",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.625rem",
+          padding: "0.75rem 1.5rem",
+          backgroundColor: "#25d366",
+          color: "#ffffff",
+          border: "none",
+          borderRadius: "6px",
+          fontWeight: 700,
+          fontSize: "0.95rem",
+          cursor: loading ? "wait" : "pointer",
+          boxShadow: "0 2px 8px rgba(37, 211, 102, 0.28)",
+          transition: "all 0.2s ease",
+        }}
       >
-        {loading ? "Memproses..." : "Konfirmasi via WhatsApp"}
+        <WhatsAppIcon size={20} />
+        <span>
+          {loading ? "Menyiapkan WhatsApp..." : "Chat Admin via WhatsApp"}
+        </span>
       </button>
     </div>
   );

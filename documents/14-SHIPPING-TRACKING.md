@@ -1,9 +1,18 @@
 # Shipping & Tracking
 
+## Shipping Policy (Flat & Free Shipping)
+
+The store operates on a simplified flat-rate shipping model across Indonesia without requiring external courier API calculation:
+- Total cart items = 1 pcs: **Rp 30.000 flat shipping**
+- Total cart items >= 2 pcs: **Rp 0 (Bebas / Gratis Ongkir)**
+
+Courier dispatch uses standard trusted couriers (J&E / JNT / SiCepat / Regular).
+
 ## Provider Independence
 
-All external shipping logic sits behind a provider adapter. UI consumes
+All shipping logic sits behind a provider adapter (`flat` provider adapter). UI consumes
 normalized types.
+
 
 ## Normalized Rate
 

@@ -20,14 +20,32 @@ for all commercial values.
 -   shipping option
 -   customer note optional
 
-## Total Calculation
+## Total Calculation & Bundle Pricing
 
 ``` txt
-subtotal = Σ authoritative item price × quantity
-shipping = authoritative selected quote
-discount = server-authorized only
-grand_total = subtotal + shipping - discount
+authoritative unit price = Rp 50.000 / pcs
+bundle price = (floor(quantity / 3) * 100.000) + ((quantity % 3) * 50.000)
+
+shipping:
+  if quantity == 1: flat Rp 30.000
+  if quantity >= 2: flat Rp 0 (Bebas / Gratis Ongkir)
+
+grand_total = bundle_price + shipping
 ```
+
+Examples:
+- 1 pcs: Rp 50.000 + Rp 30.000 (ongkir) = Rp 80.000
+- 2 pcs: Rp 100.000 + Rp 0 (gratis ongkir) = Rp 100.000
+- 3 pcs: Rp 100.000 + Rp 0 (gratis ongkir) = Rp 100.000 (item ke-3 gratis)
+- 4 pcs: Rp 150.000 + Rp 0 (gratis ongkir) = Rp 150.000
+- 6 pcs: Rp 200.000 + Rp 0 (gratis ongkir) = Rp 200.000
+
+## Multi-Photo Selection (Photo-as-Item)
+
+In thrift collections/drops where multiple garments are displayed as separate photos:
+- Each selected photo (Baju #01, Baju #02, etc.) acts as an independent line item in the cart.
+- Each photo line item increments the cart quantity count, driving bundle pricing and the flat/free shipping rule.
+
 
 ## Reservation Strategy
 

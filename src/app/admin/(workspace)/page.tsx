@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import {
   catalogDashboard,
@@ -14,7 +14,7 @@ import {
 import { formatIdr } from "@/lib/domain/money";
 
 export default async function Dashboard() {
-  const actor = await requirePermission("admin.access");
+  const actor = await requirePagePermission("admin.access");
   if (!hasPermission(actor, "products.read"))
     return (
       <main id="main-content">

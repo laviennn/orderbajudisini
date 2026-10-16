@@ -139,12 +139,25 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
   const validSiteMediaKey = `site-media/${randomUUID()}.png`;
 
   it("1. creates, edits, activates, and deactivates a bank account", async () => {
+    // Attempt setting a private payment-proof key -> MUST FAIL
+    await expect(
+      saveBankAccount({
+        bankName: "BCA",
+        accountNumber: "8881234567",
+        accountHolder: "PT Thrift Store",
+        logoObjectKey: `payment-proof/${randomUUID()}.jpg`,
+        active: true,
+        sortOrder: 1,
+      }),
+    ).rejects.toThrow();
+
     // Create
     const created = await saveBankAccount({
       bankName: "BCA",
       accountNumber: "8881234567",
       accountHolder: "PT Thrift Store",
       instructions: "Transfer sesuai nominal",
+      logoObjectKey: validSiteMediaKey,
       active: true,
       sortOrder: 1,
     });
@@ -156,6 +169,7 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
     const found = banks.find((b) => b.id === createdBankId);
     expect(found).toBeDefined();
     expect(found?.bankName).toBe("BCA");
+    expect(found?.logoObjectKey).toBe(validSiteMediaKey);
     expect(found?.active).toBe(true);
 
     // Edit & Deactivate
@@ -290,6 +304,9 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
     const updatedPaymentIds = previewWithQris.payments.map((p) => p.id);
     expect(updatedPaymentIds).toContain("qris");
     expect(updatedPaymentIds).toContain(createdBankId);
+    const qrisChoice = previewWithQris.payments.find((p) => p.id === "qris");
+    expect(qrisChoice?.logoUrl).toBe("/images/qris.webp");
+    expect(qrisChoice?.type).toBe("qris");
   });
 
   it("4. rejects checkout submission with inactive, invalid, or manipulated payment method", async () => {
@@ -362,6 +379,7 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
       accountNumber: "1112223334",
       accountHolder: "Snapshot Holder",
       instructions: "Transfer to Snapshot Bank",
+      logoObjectKey: validSiteMediaKey,
       active: true,
       sortOrder: 1,
     });
@@ -438,6 +456,9 @@ describe("Batch A — Payment Methods Operations & Verification", () => {
     expect(bankOrder?.bank?.accountNumber).toBe("1112223334");
     expect(bankOrder?.bank?.accountHolder).toBe("Snapshot Holder");
     expect(bankOrder?.bank?.instructions).toBe("Transfer to Snapshot Bank");
+    expect(bankOrder?.bank?.logoUrl).toBe(
+      `https://media.test.invalid/${validSiteMediaKey}`,
+    );
 
     // Inspect QRIS Order snapshot via publicOrder
     const qrisOrder = await publicOrder(qrisOrderRes.publicToken);

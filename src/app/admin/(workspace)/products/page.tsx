@@ -3,7 +3,7 @@ import {
   adminProductList,
   adminCategories,
 } from "@/server/services/admin-products";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { formatIdr } from "@/lib/domain/money";
 import { ProductPhoto } from "@/features/storefront/Interactions";
@@ -12,7 +12,7 @@ export default async function Products({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const actor = await requirePermission("products.read");
+  const actor = await requirePagePermission("products.read");
   const params = await searchParams;
   const input = Object.fromEntries(
     Object.entries(params).filter(([, v]) => typeof v === "string"),

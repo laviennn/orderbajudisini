@@ -114,6 +114,7 @@ export function StoreEditor({
             type="number"
             min="1"
             max="10080"
+            placeholder="30"
             value={value.reservationMinutes ?? ""}
             onChange={(e) =>
               setValue({

@@ -10,9 +10,7 @@ export const sumMoney = (values: readonly number[]) =>
 export const multiplyMoney = (price: number, quantity: number) =>
   money(money(price) * money(quantity));
 export function formatIdr(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(money(value));
+  const m = money(value);
+  const formatted = m.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `Rp${formatted}`;
 }

@@ -7,7 +7,7 @@ export async function reserveLockedProducts(
   tx: Transaction,
   orderId: string,
   items: { productId: string; quantity: number }[],
-  expiresAt: Date,
+  expiresAt: Date | null,
 ) {
   for (const item of [...items].sort((a, b) =>
     a.productId.localeCompare(b.productId),

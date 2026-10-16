@@ -1,5 +1,5 @@
 import { listAdminReviews } from "@/server/services/reviews";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { ReviewActions } from "@/features/admin/ReviewActions";
 import { AdminPagination } from "@/features/admin/Pagination";
@@ -14,7 +14,7 @@ export default async function Reviews({
 }: {
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const actor = await requirePermission("reviews.read"),
+  const actor = await requirePagePermission("reviews.read"),
     data = await listAdminReviews(await searchParams);
   return (
     <main id="main-content">

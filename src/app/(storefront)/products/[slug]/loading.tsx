@@ -8,7 +8,7 @@ export default function ProductLoading() {
     >
       <p role="status">Memuat detail produk…</p>
       <div className="product-detail">
-        <div className="gallery-main skeleton" />
+        <div className="gallery-skeleton skeleton" />
         <div>
           <div className="h-8 w-3/4 skeleton" />
           <div className="mt-6 h-6 w-1/3 skeleton" />

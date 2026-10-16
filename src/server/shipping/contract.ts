@@ -4,8 +4,14 @@ export const destinationSchema = z
     province: z.string().trim().min(1).max(120),
     city: z.string().trim().min(1).max(120),
     district: z.string().trim().min(1).max(120),
-    subdistrict: z.string().trim().min(1).max(120).nullable().default(null),
-    postalCode: z.string().regex(/^[0-9]{5}$/),
+    subdistrict: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+      z.string().trim().min(1).max(120).nullable().default(null),
+    ),
+    postalCode: z.preprocess(
+      (v) => (typeof v === "string" ? v.trim() : v),
+      z.string().regex(/^[0-9]{5}$/, "Kode pos harus 5 digit angka"),
+    ),
     providerDestinationId: z
       .string()
       .trim()

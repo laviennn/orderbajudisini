@@ -18,6 +18,7 @@ import {
   prepareCheckout,
   submitCheckout,
   publicOrder,
+  findOrderForTracking,
 } from "@/server/services/checkout";
 
 beforeAll(async () => {
@@ -189,5 +190,98 @@ describe("Checkout Flow Integration", () => {
 
     // Should yield exactly the same token
     expect(res1.publicToken).toBe(res2.publicToken);
+  });
+
+  it("creates order successfully when reservationMinutes is null in store settings", async () => {
+    await database.db
+      .update(s.storeSettings)
+      .set({ reservationMinutes: null })
+      .where(eq(s.storeSettings.id, 1));
+
+    const { products } = await fixture([50000]);
+    const preview = await prepareCheckout({
+      ids: [products[0]!.id],
+      customer: {
+        name: "Test Null Minutes",
+        phone: "081234567899",
+        recipientName: "Test",
+        addressLine: "Jalan Default TTL",
+        province: "Jawa",
+        city: "Barat",
+        district: "Satu",
+        postalCode: "12345",
+      },
+    });
+
+    const choice = preview.choices[0]!;
+    const paymentMethodId = preview.payments[0]!.id;
+    const res = await submitCheckout({
+      reference: choice.reference,
+      paymentMethodId,
+    });
+
+    expect(res.publicToken).toMatch(/^[a-f0-9]{64}$/);
+    const order = await publicOrder(res.publicToken);
+    expect(order).not.toBeNull();
+    expect(order!.status).toBe("pending_payment");
+
+    // Keep reservationMinutes null
+    await database.db
+      .update(s.storeSettings)
+      .set({ reservationMinutes: null })
+      .where(eq(s.storeSettings.id, 1));
+  });
+
+  it("tracks order using orderNumber and phone number", async () => {
+    const { products } = await fixture([50000]);
+    const phone = "081298765432";
+    const preview = await prepareCheckout({
+      ids: [products[0]!.id],
+      customer: {
+        name: "Tracking Customer",
+        phone,
+        recipientName: "Tracking Recipient",
+        addressLine: "Jalan Lacak Pesanan",
+        province: "Jawa",
+        city: "Barat",
+        district: "Satu",
+        postalCode: "12345",
+      },
+    });
+
+    const choice = preview.choices[0]!;
+    const paymentMethodId = preview.payments[0]!.id;
+    const res = await submitCheckout({
+      reference: choice.reference,
+      paymentMethodId,
+    });
+
+    const order = await publicOrder(res.publicToken);
+    expect(order).not.toBeNull();
+
+    // Track successfully with formatted phone
+    const tracked = await findOrderForTracking({
+      orderNumber: order!.orderNumber,
+      phone: "0812-9876-5432",
+    });
+
+    expect(tracked.token).toBe(res.publicToken);
+    expect(tracked.redirectUrl).toBe(`/order/${res.publicToken}`);
+
+    // Fails with wrong phone
+    await expect(
+      findOrderForTracking({
+        orderNumber: order!.orderNumber,
+        phone: "081111111111",
+      }),
+    ).rejects.toThrow();
+
+    // Fails with nonexistent order
+    await expect(
+      findOrderForTracking({
+        orderNumber: "ORD-NONEXISTENT-999",
+        phone,
+      }),
+    ).rejects.toThrow();
   });
 });

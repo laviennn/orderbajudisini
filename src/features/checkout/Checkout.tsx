@@ -2,10 +2,16 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useCart } from "@/features/cart/store";
 import { formatIdr } from "@/lib/domain/money";
 import { trackCommerce } from "@/lib/analytics";
-import type { CheckoutPreview } from "@/server/services/checkout";
+import type {
+  CheckoutPreview,
+  PaymentMethodChoice,
+} from "@/server/services/checkout";
+import { ShippingIcon, BankIcon, AlertCircleIcon } from "./Icons";
+import { CopyButton } from "./CopyButton";
 
 type CheckoutState =
   | { status: "editing" }
@@ -20,6 +26,79 @@ type CheckoutState =
       preview: CheckoutPreview;
       selectedQuoteRef: string;
     };
+
+function formatApiError(
+  err: { message?: string; fieldErrors?: Record<string, string[]> },
+  fallback: string,
+): string {
+  if (err.fieldErrors && typeof err.fieldErrors === "object") {
+    const entries = Object.entries(err.fieldErrors);
+    const first = entries[0];
+    if (first) {
+      const [field, msgs] = first;
+      const msg = Array.isArray(msgs) ? msgs[0] : msgs;
+      const fieldLabels: Record<string, string> = {
+        "customer.name": "Nama Lengkap",
+        "customer.phone": "Nomor WhatsApp",
+        phone: "Nomor WhatsApp",
+        "customer.recipientName": "Nama Penerima",
+        "customer.addressLine": "Alamat Lengkap",
+        "customer.province": "Provinsi",
+        "customer.city": "Kota / Kabupaten",
+        "customer.district": "Kecamatan",
+        "customer.subdistrict": "Kelurahan",
+        "customer.postalCode": "Kode Pos",
+        "customer.email": "Email",
+        ids: "Item Keranjang",
+      };
+      const label = fieldLabels[field] || field;
+      return `${label}: ${msg}`;
+    }
+  }
+  return err.message || fallback;
+}
+
+function ErrorAlert({ message, id }: { message: string; id?: string }) {
+  return (
+    <div
+      id={id}
+      role="alert"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.75rem",
+        padding: "0.875rem 1rem",
+        borderRadius: "var(--radius-control)",
+        backgroundColor: "#fff1f2",
+        border: "1.5px solid #fecdd3",
+        color: "#9f1239",
+        fontSize: "0.875rem",
+        lineHeight: 1.5,
+        margin: "1rem 0",
+        boxShadow: "0 2px 6px rgba(225, 29, 72, 0.08)",
+      }}
+    >
+      <AlertCircleIcon
+        size={20}
+        style={{ color: "#e11d48", flexShrink: 0, marginTop: "2px" }}
+      />
+      <div style={{ flex: 1 }}>
+        <strong
+          style={{
+            display: "block",
+            color: "#be123c",
+            marginBottom: "0.125rem",
+            fontSize: "0.875rem",
+            fontWeight: 700,
+          }}
+        >
+          Periksa Data Anda
+        </strong>
+        <span>{message}</span>
+      </div>
+    </div>
+  );
+}
 
 export function Checkout() {
   const cart = useCart();
@@ -50,6 +129,20 @@ export function Checkout() {
     }
   }, [cart.ready, cart.ids]);
 
+  useEffect(() => {
+    if (error) {
+      const isQuotesReady =
+        state.status === "quotes_ready" || state.status === "submitting";
+      const targetId = isQuotesReady
+        ? "checkout-submit-error"
+        : "checkout-prepare-error";
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [error, state.status]);
+
   if (!cart.ready) return <p role="status">Memuat keranjang…</p>;
   if (!cart.ids.length) {
     return (
@@ -69,6 +162,20 @@ export function Checkout() {
     setError("");
 
     try {
+      const trimmedCustomer = {
+        name: name.trim(),
+        email: email.trim() || null,
+        phone: phone.trim(),
+        recipientName: (sameAsBuyer ? name : recipientName).trim(),
+        addressLine: addressLine.trim(),
+        province: province.trim(),
+        city: city.trim(),
+        district: district.trim(),
+        subdistrict: subdistrict.trim() || null,
+        postalCode: postalCode.trim(),
+        notes: notes.trim() || undefined,
+      };
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,19 +183,7 @@ export function Checkout() {
           action: "prepare",
           data: {
             ids: cart.ids,
-            customer: {
-              name,
-              email: email || null,
-              phone,
-              recipientName: sameAsBuyer ? name : recipientName,
-              addressLine,
-              province,
-              city,
-              district,
-              subdistrict: subdistrict || null,
-              postalCode,
-              notes: notes || undefined,
-            },
+            customer: trimmedCustomer,
           },
         }),
       });
@@ -96,8 +191,10 @@ export function Checkout() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(
-          err.message ||
+          formatApiError(
+            err,
             "Gagal mendapatkan ongkos kirim. Periksa kembali alamat Anda.",
+          ),
         );
       }
 
@@ -145,7 +242,7 @@ export function Checkout() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Gagal membuat pesanan.");
+        throw new Error(formatApiError(err, "Gagal membuat pesanan."));
       }
 
       const result = await res.json();
@@ -162,14 +259,7 @@ export function Checkout() {
     <div className="page-width cart-layout">
       <div>
         <h1>Checkout</h1>
-        {error && (
-          <div
-            role="alert"
-            style={{ color: "var(--danger)", marginBottom: "1rem" }}
-          >
-            <p>{error}</p>
-          </div>
-        )}
+        {error && <ErrorAlert message={error} id="checkout-top-error" />}
 
         {state.status === "editing" || state.status === "preparing" ? (
           <form className="filter-form" onSubmit={handlePrepare}>
@@ -308,10 +398,14 @@ export function Checkout() {
               />
             </label>
 
+            {error && (
+              <ErrorAlert message={error} id="checkout-prepare-error" />
+            )}
+
             <button
               type="submit"
               className="primary-action purchase-action"
-              style={{ marginTop: "1.5rem" }}
+              style={{ marginTop: error ? "0.5rem" : "1.5rem" }}
               disabled={state.status !== "editing"}
             >
               {state.status === "preparing"
@@ -354,9 +448,21 @@ export function Checkout() {
                     }}
                   />
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: 0 }}>
-                      {choice.courier} - {choice.service}
-                    </h3>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <ShippingIcon
+                        size={18}
+                        style={{ color: "var(--muted-foreground)" }}
+                      />
+                      <h3 style={{ margin: 0 }}>
+                        {choice.courier} - {choice.service}
+                      </h3>
+                    </div>
                     {choice.estimate && (
                       <p
                         className="small-note"
@@ -377,42 +483,191 @@ export function Checkout() {
             <div
               style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
             >
-              {state.preview.payments?.map(
-                (payment: { id: string; name: string; type: string }) => (
+              {state.preview.payments?.map((payment: PaymentMethodChoice) => {
+                const isSelected = paymentMethodId === payment.id;
+                return (
                   <label
                     key={payment.id}
                     style={{
-                      flexDirection: "row",
+                      display: "flex",
                       alignItems: "flex-start",
                       gap: "1rem",
-                      border: "1px solid var(--border)",
-                      padding: "1rem",
+                      border: isSelected
+                        ? "1.5px solid var(--foreground)"
+                        : "1px solid var(--border)",
+                      padding: "1rem 1.25rem",
                       borderRadius: "var(--radius-control)",
+                      backgroundColor: isSelected
+                        ? "var(--surface-subtle)"
+                        : "var(--surface)",
                       cursor: "pointer",
+                      transition: "all 0.2s ease",
                     }}
                   >
                     <input
                       type="radio"
                       name="paymentChoice"
                       value={payment.id}
-                      checked={paymentMethodId === payment.id}
+                      checked={isSelected}
                       onChange={() => setPaymentMethodId(payment.id)}
                       disabled={state.status === "submitting"}
                       style={{
                         width: "auto",
                         minHeight: "auto",
-                        marginTop: "4px",
+                        marginTop: "6px",
                       }}
                     />
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: 0 }}>{payment.name}</h3>
+
+                    {/* Logo or Method Icon */}
+                    <div
+                      style={{
+                        width: "68px",
+                        height: "44px",
+                        borderRadius: "6px",
+                        border: "1px solid var(--border)",
+                        backgroundColor: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        padding: "4px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {payment.type === "qris" ? (
+                        <Image
+                          unoptimized
+                          src="/images/qris.webp"
+                          alt="QRIS"
+                          width={60}
+                          height={36}
+                          style={{
+                            objectFit: "contain",
+                            maxHeight: "100%",
+                            width: "auto",
+                          }}
+                        />
+                      ) : payment.logoUrl ? (
+                        <Image
+                          unoptimized
+                          src={payment.logoUrl}
+                          alt={payment.name}
+                          width={60}
+                          height={36}
+                          style={{
+                            objectFit: "contain",
+                            maxHeight: "100%",
+                            width: "auto",
+                          }}
+                        />
+                      ) : (
+                        <BankIcon
+                          size={24}
+                          style={{ color: "var(--foreground)" }}
+                        />
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "0.5rem",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <h3
+                          style={{
+                            margin: 0,
+                            fontSize: "1rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {payment.bankName || payment.name}
+                        </h3>
+                      </div>
+
+                      {payment.type === "qris" && payment.merchantName && (
+                        <p
+                          className="small-note"
+                          style={{
+                            margin: "0.25rem 0 0",
+                            fontSize: "0.8125rem",
+                          }}
+                        >
+                          {payment.merchantName}
+                        </p>
+                      )}
+
+                      {payment.type === "bank_transfer" &&
+                        payment.accountNumber && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.625rem",
+                              marginTop: "0.375rem",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontFamily: "var(--font-mono, monospace)",
+                                fontSize: "0.9375rem",
+                                fontWeight: 700,
+                                letterSpacing: "0.04em",
+                              }}
+                            >
+                              {payment.accountNumber}
+                            </span>
+                            <CopyButton
+                              text={payment.accountNumber}
+                              subject="Nomor rekening"
+                            />
+                          </div>
+                        )}
+
+                      {payment.accountHolder && (
+                        <p
+                          className="small-note"
+                          style={{
+                            margin: "0.25rem 0 0",
+                            fontSize: "0.8125rem",
+                          }}
+                        >
+                          A.n. {payment.accountHolder}
+                        </p>
+                      )}
+
+                      {payment.instructions && (
+                        <p
+                          className="small-note"
+                          style={{
+                            margin: "0.375rem 0 0",
+                            fontSize: "0.8125rem",
+                            color: "var(--muted-foreground)",
+                          }}
+                        >
+                          {payment.instructions}
+                        </p>
+                      )}
                     </div>
                   </label>
-                ),
-              )}
+                );
+              })}
             </div>
 
-            <div style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
+            {error && <ErrorAlert message={error} id="checkout-submit-error" />}
+
+            <div
+              style={{
+                display: "flex",
+                gap: "1rem",
+                marginTop: error ? "0.75rem" : "2rem",
+              }}
+            >
               <button
                 type="button"
                 className="text-link"
@@ -452,7 +707,19 @@ export function Checkout() {
                   <dd>{formatIdr(pricing.merchandiseTotal)}</dd>
                 </div>
                 <div>
-                  <dt>Ongkos kirim ({choice.courier})</dt>
+                  <dt
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                    }}
+                  >
+                    <ShippingIcon
+                      size={16}
+                      style={{ color: "var(--muted-foreground)" }}
+                    />
+                    <span>Ongkos kirim ({choice.courier})</span>
+                  </dt>
                   <dd>{formatIdr(choice.cost)}</dd>
                 </div>
                 <div className="cart-total">
@@ -463,9 +730,18 @@ export function Checkout() {
             );
           })()
         ) : (
-          <p className="small-note">
-            Isi informasi pengiriman untuk melihat total tagihan beserta ongkos
-            kirim.
+          <p
+            className="small-note"
+            style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}
+          >
+            <ShippingIcon
+              size={16}
+              style={{ marginTop: "2px", color: "var(--muted-foreground)" }}
+            />
+            <span>
+              Isi informasi pengiriman untuk melihat total tagihan beserta
+              ongkos kirim.
+            </span>
           </p>
         )}
       </aside>

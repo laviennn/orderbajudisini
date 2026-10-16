@@ -9,13 +9,26 @@ vi.mock("@/server/env", () => ({
     AUTH_SECRET: "test-secret-for-ticket-sealing",
   })),
 }));
-import { normalizePhone } from "../src/server/services/checkout";
+import {
+  normalizePhone,
+  cleanPhoneDigits,
+} from "../src/server/services/checkout";
 import { AppError } from "../src/lib/errors";
 
 describe("Checkout Utils", () => {
+  describe("cleanPhoneDigits", () => {
+    it("extracts clean digits without country code or leading zero", () => {
+      expect(cleanPhoneDigits("+628123456789")).toBe("8123456789");
+      expect(cleanPhoneDigits("628123456789")).toBe("8123456789");
+      expect(cleanPhoneDigits("08123456789")).toBe("8123456789");
+      expect(cleanPhoneDigits("0812-3456-789")).toBe("8123456789");
+    });
+  });
+
   describe("normalizePhone", () => {
     it("strips non-numeric characters and formats to +62", () => {
       expect(normalizePhone("0812-3456-7890")).toBe("+6281234567890");
+      expect(normalizePhone("81234567890")).toBe("+6281234567890");
       expect(normalizePhone("+62 812 3456 7890")).toBe("+6281234567890");
       expect(normalizePhone("6281234567890")).toBe("+6281234567890");
       expect(normalizePhone("(0812) 3456-7890")).toBe("+6281234567890");
