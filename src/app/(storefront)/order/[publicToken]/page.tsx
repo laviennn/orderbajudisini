@@ -593,7 +593,9 @@ export default async function OrderConfirmationPage({
                         lineHeight: 1.4,
                       }}
                     >
-                      💡 <em>Tips:</em> Simpan gambar QRIS ke galeri HP, lalu buka aplikasi m-Banking atau e-Wallet dan pilih <strong>Scan dari Galeri</strong>.
+                      💡 <em>Tips:</em> Simpan gambar QRIS ke galeri HP, lalu
+                      buka aplikasi m-Banking atau e-Wallet dan pilih{" "}
+                      <strong>Scan dari Galeri</strong>.
                     </p>
                   </div>
                 )}
@@ -627,14 +629,10 @@ export default async function OrderConfirmationPage({
             </div>
           )}
 
-          {/* Payment Proof Component & WhatsApp CTAs */}
+          {/* Payment Proof Component */}
           {isPendingPayment && (
             <div style={{ marginTop: "1.75rem" }}>
               <PaymentProofUpload publicToken={publicToken} />
-              <WhatsAppConfirmation
-                publicToken={publicToken}
-                orderNumber={order.orderNumber}
-              />
             </div>
           )}
 

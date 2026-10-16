@@ -29,13 +29,7 @@ const corsRule = {
     {
       AllowedHeaders: ["*"],
       AllowedMethods: ["GET", "PUT", "HEAD", "POST"],
-      AllowedOrigins: [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "https://*.orderbajudisini.com",
-        "https://orderbajudisini.com",
-        "*",
-      ],
+      AllowedOrigins: ["*"],
       ExposeHeaders: ["ETag"],
       MaxAgeSeconds: 3600,
     },

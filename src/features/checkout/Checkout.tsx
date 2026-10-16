@@ -311,391 +311,487 @@ export function Checkout() {
   return (
     <div className="page-width cart-layout">
       <div>
-        <h1>Checkout</h1>
+        <h1 style={{ marginBottom: "1.25rem" }}>Checkout</h1>
+
+        {/* Step Indicator */}
+        <div className="checkout-steps-bar" aria-label="Tahapan Checkout">
+          <div
+            className={`checkout-step-item ${
+              state.status === "editing" || state.status === "preparing"
+                ? "is-active"
+                : "is-complete"
+            }`}
+          >
+            <span className="checkout-step-num">
+              {state.status === "quotes_ready" || state.status === "submitting"
+                ? "✓"
+                : "1"}
+            </span>
+            <span className="checkout-step-text">Data Pengiriman</span>
+          </div>
+          <div className="checkout-step-divider" aria-hidden="true" />
+          <div
+            className={`checkout-step-item ${
+              state.status === "quotes_ready" || state.status === "submitting"
+                ? "is-active"
+                : ""
+            }`}
+          >
+            <span className="checkout-step-num">2</span>
+            <span className="checkout-step-text">Pengiriman & Pembayaran</span>
+          </div>
+        </div>
+
         {error && <ErrorAlert message={error} id="checkout-top-error" />}
 
         {state.status === "editing" || state.status === "preparing" ? (
-          <form className="filter-form" onSubmit={handlePrepare}>
-            <h2>Informasi Pemesan</h2>
-            <label>
-              Nama Lengkap
-              <input
-                required
-                minLength={2}
-                maxLength={120}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={state.status !== "editing"}
-              />
-            </label>
-            <label>
-              Email (Opsional)
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={state.status !== "editing"}
-              />
-            </label>
-            <label>
-              Nomor WhatsApp / HP
-              <input
-                required
-                minLength={8}
-                maxLength={30}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={state.status !== "editing"}
-                placeholder="08..."
-              />
-            </label>
-
-            <h2 style={{ marginTop: "1.5rem" }}>Tujuan Pengiriman</h2>
-            <label
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={sameAsBuyer}
-                onChange={(e) => setSameAsBuyer(e.target.checked)}
-                disabled={state.status !== "editing"}
-                style={{ width: "auto", minHeight: "auto" }}
-              />
-              Sama dengan nama pemesan
-            </label>
-            {!sameAsBuyer && (
-              <label>
-                Nama Penerima
+          <form className="checkout-form" onSubmit={handlePrepare}>
+            <div className="checkout-form-section">
+              <h2 className="checkout-form-title">
+                <span className="checkout-step-badge">1</span>
+                Informasi Pemesan
+              </h2>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-name">
+                  Nama Lengkap *
+                </label>
                 <input
+                  id="checkout-name"
+                  className="checkout-input"
                   required
                   minLength={2}
                   maxLength={120}
-                  value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   disabled={state.status !== "editing"}
+                  placeholder="Nama lengkap Anda"
                 />
-              </label>
-            )}
-            <label>
-              Alamat Lengkap
-              <input
-                required
-                minLength={5}
-                maxLength={500}
-                value={addressLine}
-                onChange={(e) => setAddressLine(e.target.value)}
-                disabled={state.status !== "editing"}
-              />
-            </label>
-            <div className="price-inputs">
-              <label>
-                Provinsi
+              </div>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-email">
+                  Email (Opsional)
+                </label>
                 <input
-                  required
-                  value={province}
-                  onChange={(e) => setProvince(e.target.value)}
+                  id="checkout-email"
+                  className="checkout-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={state.status !== "editing"}
+                  placeholder="email@contoh.com"
                 />
-              </label>
-              <label>
-                Kota / Kabupaten
+              </div>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-phone">
+                  Nomor WhatsApp / HP *
+                </label>
                 <input
+                  id="checkout-phone"
+                  className="checkout-input"
                   required
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  minLength={8}
+                  maxLength={30}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   disabled={state.status !== "editing"}
+                  placeholder="08xxxxxxxxxx"
                 />
-              </label>
+              </div>
             </div>
-            <div className="price-inputs">
-              <label>
-                Kecamatan
+
+            <div
+              className="checkout-form-section"
+              style={{ marginTop: "0.5rem" }}
+            >
+              <h2 className="checkout-form-title">
+                <span className="checkout-step-badge">2</span>
+                Tujuan Pengiriman
+              </h2>
+              <label className="checkout-checkbox-label">
                 <input
+                  type="checkbox"
+                  checked={sameAsBuyer}
+                  onChange={(e) => setSameAsBuyer(e.target.checked)}
+                  disabled={state.status !== "editing"}
+                  className="checkout-checkbox"
+                />
+                <span>Sama dengan nama pemesan</span>
+              </label>
+              {!sameAsBuyer && (
+                <div className="checkout-field">
+                  <label
+                    className="checkout-label"
+                    htmlFor="checkout-recipient"
+                  >
+                    Nama Penerima *
+                  </label>
+                  <input
+                    id="checkout-recipient"
+                    className="checkout-input"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                    value={recipientName}
+                    onChange={(e) => setRecipientName(e.target.value)}
+                    disabled={state.status !== "editing"}
+                    placeholder="Nama penerima paket"
+                  />
+                </div>
+              )}
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-address">
+                  Alamat Lengkap *
+                </label>
+                <input
+                  id="checkout-address"
+                  className="checkout-input"
                   required
-                  value={district}
-                  onChange={(e) => setDistrict(e.target.value)}
+                  minLength={5}
+                  maxLength={500}
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
                   disabled={state.status !== "editing"}
+                  placeholder="Nama jalan, nomor rumah, RT/RW, patokan"
                 />
-              </label>
-              <label>
-                Kelurahan (Opsional)
+              </div>
+              <div className="checkout-grid-2">
+                <div className="checkout-field">
+                  <label className="checkout-label" htmlFor="checkout-province">
+                    Provinsi *
+                  </label>
+                  <input
+                    id="checkout-province"
+                    className="checkout-input"
+                    required
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    disabled={state.status !== "editing"}
+                    placeholder="Contoh: DKI Jakarta"
+                  />
+                </div>
+                <div className="checkout-field">
+                  <label className="checkout-label" htmlFor="checkout-city">
+                    Kota / Kabupaten *
+                  </label>
+                  <input
+                    id="checkout-city"
+                    className="checkout-input"
+                    required
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    disabled={state.status !== "editing"}
+                    placeholder="Contoh: Jakarta Selatan"
+                  />
+                </div>
+              </div>
+              <div className="checkout-grid-2">
+                <div className="checkout-field">
+                  <label className="checkout-label" htmlFor="checkout-district">
+                    Kecamatan *
+                  </label>
+                  <input
+                    id="checkout-district"
+                    className="checkout-input"
+                    required
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    disabled={state.status !== "editing"}
+                    placeholder="Contoh: Tebet"
+                  />
+                </div>
+                <div className="checkout-field">
+                  <label
+                    className="checkout-label"
+                    htmlFor="checkout-subdistrict"
+                  >
+                    Kelurahan (Opsional)
+                  </label>
+                  <input
+                    id="checkout-subdistrict"
+                    className="checkout-input"
+                    value={subdistrict}
+                    onChange={(e) => setSubdistrict(e.target.value)}
+                    disabled={state.status !== "editing"}
+                    placeholder="Contoh: Tebet Timur"
+                  />
+                </div>
+              </div>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-postal">
+                  Kode Pos *
+                </label>
                 <input
-                  value={subdistrict}
-                  onChange={(e) => setSubdistrict(e.target.value)}
+                  id="checkout-postal"
+                  className="checkout-input"
+                  required
+                  pattern="[0-9]{5}"
+                  maxLength={5}
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
                   disabled={state.status !== "editing"}
+                  placeholder="Contoh: 12820"
                 />
-              </label>
+              </div>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="checkout-notes">
+                  Catatan Pesanan (Opsional)
+                </label>
+                <input
+                  id="checkout-notes"
+                  className="checkout-input"
+                  maxLength={1000}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  disabled={state.status !== "editing"}
+                  placeholder="Instruksi pengiriman khusus (opsional)"
+                />
+              </div>
             </div>
-            <label>
-              Kode Pos
-              <input
-                required
-                pattern="[0-9]{5}"
-                maxLength={5}
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value)}
-                disabled={state.status !== "editing"}
-              />
-            </label>
-            <label>
-              Catatan Pesanan (Opsional)
-              <input
-                maxLength={1000}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={state.status !== "editing"}
-              />
-            </label>
 
             {error && (
               <ErrorAlert message={error} id="checkout-prepare-error" />
             )}
 
-            <button
-              type="submit"
-              className="primary-action purchase-action"
-              style={{ marginTop: error ? "0.5rem" : "1.5rem" }}
-              disabled={state.status !== "editing"}
-            >
-              {state.status === "preparing"
-                ? "Memeriksa Ongkir..."
-                : "Pilih Pengiriman"}
-            </button>
+            <div className="checkout-actions-single">
+              <button
+                type="submit"
+                className="primary-action purchase-action checkout-submit-button"
+                disabled={state.status !== "editing"}
+              >
+                {state.status === "preparing" ? (
+                  <>
+                    <span className="animate-spin checkout-btn-spinner" />
+                    <span>Memeriksa Ongkir...</span>
+                  </>
+                ) : (
+                  <span>Pilih Pengiriman & Pembayaran &rarr;</span>
+                )}
+              </button>
+            </div>
           </form>
         ) : (
-          <form className="filter-form" onSubmit={handleSubmit}>
-            <h2>Pilih Layanan Pengiriman</h2>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-            >
-              {state.preview.choices.map((choice) => (
-                <label
-                  key={choice.reference}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                    gap: "1rem",
-                    border: "1px solid var(--border)",
-                    padding: "1rem",
-                    borderRadius: "var(--radius-control)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="shippingChoice"
-                    value={choice.reference}
-                    checked={state.selectedQuoteRef === choice.reference}
-                    onChange={() =>
-                      setState({ ...state, selectedQuoteRef: choice.reference })
-                    }
-                    disabled={state.status === "submitting"}
-                    style={{
-                      width: "auto",
-                      minHeight: "auto",
-                      marginTop: "4px",
-                    }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                      }}
+          <form className="checkout-form" onSubmit={handleSubmit}>
+            <div className="checkout-form-section">
+              <div className="checkout-section-header">
+                <h2 className="checkout-form-title">
+                  <span className="checkout-step-badge">1</span>
+                  Pilih Layanan Pengiriman
+                </h2>
+                <span className="checkout-section-hint">
+                  Ongkos kirim sesuai alamat tujuan Anda
+                </span>
+              </div>
+
+              <div
+                className="checkout-shipping-list"
+                role="radiogroup"
+                aria-label="Pilih Layanan Pengiriman"
+              >
+                {state.preview.choices.map((choice) => {
+                  const isSelected =
+                    state.selectedQuoteRef === choice.reference;
+                  return (
+                    <label
+                      key={choice.reference}
+                      htmlFor={`shipping-${choice.reference}`}
+                      className={`checkout-shipping-card ${
+                        isSelected ? "is-selected" : ""
+                      }`}
                     >
-                      <ShippingIcon
-                        size={18}
-                        style={{ color: "var(--muted-foreground)" }}
+                      <input
+                        id={`shipping-${choice.reference}`}
+                        type="radio"
+                        name="shippingChoice"
+                        value={choice.reference}
+                        checked={isSelected}
+                        onChange={() =>
+                          setState({
+                            ...state,
+                            selectedQuoteRef: choice.reference,
+                          })
+                        }
+                        disabled={state.status === "submitting"}
+                        className="checkout-sr-radio"
                       />
-                      <h3 style={{ margin: 0 }}>
-                        {choice.courier} - {choice.service}
-                      </h3>
-                    </div>
-                    {choice.estimate && (
-                      <p
-                        className="small-note"
-                        style={{ margin: "0.25rem 0 0" }}
+
+                      <span
+                        className="checkout-radio-indicator"
+                        aria-hidden="true"
                       >
-                        Estimasi: {choice.estimate}
-                      </p>
-                    )}
-                  </div>
-                  <div style={{ fontWeight: 500 }}>
-                    {formatIdr(choice.cost)}
-                  </div>
-                </label>
-              ))}
-            </div>
+                        {isSelected && (
+                          <span className="checkout-radio-inner" />
+                        )}
+                      </span>
 
-            <h2 style={{ marginTop: "2rem" }}>Pilih Metode Pembayaran</h2>
-            <div className="payment-methods-list">
-              {state.preview.payments?.map((payment: PaymentMethodChoice) => {
-                const isSelected = paymentMethodId === payment.id;
-                return (
-                  <label
-                    key={payment.id}
-                    className={`payment-method-card ${isSelected ? "is-selected" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="paymentChoice"
-                      value={payment.id}
-                      checked={isSelected}
-                      onChange={() => setPaymentMethodId(payment.id)}
-                      disabled={state.status === "submitting"}
-                      className="payment-method-radio"
-                    />
-
-                    {/* Logo or Method Icon */}
-                    <div className="payment-method-logo">
-                      {payment.type === "qris" ? (
-                        <Image
-                          unoptimized
-                          src="/images/qris.webp"
-                          alt="QRIS"
-                          width={60}
-                          height={36}
-                          style={{
-                            objectFit: "contain",
-                            maxHeight: "100%",
-                            width: "auto",
-                          }}
-                        />
-                      ) : payment.logoUrl ? (
-                        <Image
-                          unoptimized
-                          src={payment.logoUrl}
-                          alt={payment.name}
-                          width={60}
-                          height={36}
-                          style={{
-                            objectFit: "contain",
-                            maxHeight: "100%",
-                            width: "auto",
-                          }}
-                        />
-                      ) : (
-                        <BankIcon
-                          size={24}
-                          style={{ color: "var(--foreground)" }}
-                        />
-                      )}
-                    </div>
-
-                    <div className="payment-method-details">
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "0.5rem",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <h3
-                          style={{
-                            margin: 0,
-                            fontSize: "1rem",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {payment.bankName || payment.name}
-                        </h3>
+                      <div className="checkout-shipping-icon-box">
+                        <ShippingIcon size={18} />
                       </div>
 
-                      {payment.type === "qris" && payment.merchantName && (
-                        <p
-                          className="small-note"
-                          style={{
-                            margin: "0.25rem 0 0",
-                            fontSize: "0.8125rem",
-                          }}
-                        >
-                          {payment.merchantName}
-                        </p>
-                      )}
+                      <div className="checkout-shipping-details">
+                        <span className="checkout-shipping-name">
+                          {choice.courier} &bull; {choice.service}
+                        </span>
+                        {choice.estimate && (
+                          <span className="checkout-shipping-estimate">
+                            Estimasi: {choice.estimate}
+                          </span>
+                        )}
+                      </div>
 
-                      {payment.type === "bank_transfer" &&
-                        payment.accountNumber && (
-                          <div className="payment-account-row">
-                            <span
-                              style={{
-                                fontFamily: "var(--font-mono, monospace)",
-                                fontSize: "0.9375rem",
-                                fontWeight: 700,
-                                letterSpacing: "0.04em",
-                              }}
-                            >
-                              {payment.accountNumber}
-                            </span>
-                            <CopyButton
-                              text={payment.accountNumber}
-                              subject="Nomor rekening"
-                            />
-                          </div>
+                      <div className="checkout-shipping-cost">
+                        {formatIdr(choice.cost)}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              className="checkout-form-section"
+              style={{ marginTop: "1rem" }}
+            >
+              <div className="checkout-section-header">
+                <h2 className="checkout-form-title">
+                  <span className="checkout-step-badge">2</span>
+                  Pilih Metode Pembayaran
+                </h2>
+                <span className="checkout-section-hint">
+                  Pilih rekening tujuan atau QRIS untuk transaksi
+                </span>
+              </div>
+
+              <div
+                className="checkout-payment-list"
+                role="radiogroup"
+                aria-label="Pilih Metode Pembayaran"
+              >
+                {state.preview.payments?.map((payment: PaymentMethodChoice) => {
+                  const isSelected = paymentMethodId === payment.id;
+                  return (
+                    <label
+                      key={payment.id}
+                      htmlFor={`payment-${payment.id}`}
+                      className={`checkout-payment-card ${
+                        isSelected ? "is-selected" : ""
+                      }`}
+                    >
+                      <input
+                        id={`payment-${payment.id}`}
+                        type="radio"
+                        name="paymentChoice"
+                        value={payment.id}
+                        checked={isSelected}
+                        onChange={() => setPaymentMethodId(payment.id)}
+                        disabled={state.status === "submitting"}
+                        className="checkout-sr-radio"
+                      />
+
+                      <span
+                        className="checkout-radio-indicator"
+                        aria-hidden="true"
+                      >
+                        {isSelected && (
+                          <span className="checkout-radio-inner" />
+                        )}
+                      </span>
+
+                      {/* Logo or Method Icon */}
+                      <div className="checkout-payment-logo">
+                        {payment.type === "qris" ? (
+                          <Image
+                            unoptimized
+                            src="/images/qris.webp"
+                            alt="QRIS"
+                            width={56}
+                            height={32}
+                            className="checkout-logo-img"
+                          />
+                        ) : payment.logoUrl ? (
+                          <Image
+                            unoptimized
+                            src={payment.logoUrl}
+                            alt={payment.name}
+                            width={56}
+                            height={32}
+                            className="checkout-logo-img"
+                          />
+                        ) : (
+                          <BankIcon size={20} className="checkout-logo-icon" />
+                        )}
+                      </div>
+
+                      <div className="checkout-payment-info">
+                        <div className="checkout-payment-header">
+                          <span className="checkout-payment-title">
+                            {payment.bankName || payment.name}
+                          </span>
+                          <span className="checkout-payment-badge">
+                            {payment.type === "qris" ? "QRIS" : "Bank Transfer"}
+                          </span>
+                        </div>
+
+                        {payment.type === "qris" && payment.merchantName && (
+                          <p className="checkout-payment-subtitle">
+                            Merchant: {payment.merchantName}
+                          </p>
                         )}
 
-                      {payment.accountHolder && (
-                        <p
-                          className="small-note"
-                          style={{
-                            margin: "0.25rem 0 0",
-                            fontSize: "0.8125rem",
-                          }}
-                        >
-                          A.n. {payment.accountHolder}
-                        </p>
-                      )}
+                        {payment.type === "bank_transfer" &&
+                          payment.accountNumber && (
+                            <div className="checkout-account-row">
+                              <span className="checkout-account-number">
+                                {payment.accountNumber}
+                              </span>
+                              <CopyButton
+                                text={payment.accountNumber}
+                                subject="Nomor rekening"
+                              />
+                            </div>
+                          )}
 
-                      {payment.instructions && (
-                        <p
-                          className="small-note"
-                          style={{
-                            margin: "0.375rem 0 0",
-                            fontSize: "0.8125rem",
-                            color: "var(--muted-foreground)",
-                          }}
-                        >
-                          {payment.instructions}
-                        </p>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
+                        {payment.accountHolder && (
+                          <p className="checkout-payment-holder">
+                            a.n. {payment.accountHolder}
+                          </p>
+                        )}
+
+                        {payment.instructions && (
+                          <p className="checkout-payment-instructions">
+                            {payment.instructions}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {error && <ErrorAlert message={error} id="checkout-submit-error" />}
 
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                marginTop: error ? "0.75rem" : "2rem",
-              }}
-            >
+            <div className="checkout-actions">
               <button
                 type="button"
-                className="text-link"
+                className="checkout-back-button"
                 onClick={() => setState({ status: "editing" })}
                 disabled={state.status === "submitting"}
               >
-                Ubah Alamat
+                <span aria-hidden="true">&larr;</span> Ubah Alamat
               </button>
               <button
                 type="submit"
-                className="primary-action purchase-action"
+                className="primary-action purchase-action checkout-submit-button"
                 disabled={state.status === "submitting"}
-                style={{ flex: 1 }}
               >
-                {state.status === "submitting"
-                  ? "Memproses..."
-                  : "Buat Pesanan"}
+                {state.status === "submitting" ? (
+                  <>
+                    <span className="animate-spin checkout-btn-spinner" />
+                    <span>Memproses Pesanan...</span>
+                  </>
+                ) : (
+                  <span>Buat Pesanan &rarr;</span>
+                )}
               </button>
             </div>
           </form>

@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import EmbeddedPostgres from "embedded-postgres";
 import { Pool } from "pg";
-import type { Pool as NeonPool } from "@neondatabase/serverless";
+import { Pool as NeonPool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
 import * as schema from "@/server/db/schema";
@@ -55,6 +55,7 @@ export async function startTestDatabase() {
   }
   // Neon Pool implements the node-postgres query contract. This test-only adapter uses the
   // identical production Drizzle dialect against a real, isolated local PostgreSQL server.
+  Object.setPrototypeOf(pool, NeonPool.prototype);
   const db = drizzle({ client: pool as unknown as NeonPool, schema });
   try {
     await migrate(db, { migrationsFolder: "./drizzle" });

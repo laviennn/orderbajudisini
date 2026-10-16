@@ -6,7 +6,6 @@ import { AlertCircleIcon, UploadCloudIcon, CameraIcon } from "./Icons";
 
 export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
   const [file, setFile] = useState<File | null>(null);
-  const [fileMime, setFileMime] = useState<string>("image/jpeg");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +64,6 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
       return;
     }
     setFile(selected);
-    setFileMime(mime);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(selected);
@@ -81,51 +79,18 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
     setError(null);
 
     try {
-      // 1. Authorize Upload
-      const authRes = await fetch(
-        `/api/order/${publicToken}/payment-proof/authorize`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mime: fileMime, bytes: file.size }),
-        },
-      );
-      if (!authRes.ok) {
-        const errorData = await authRes.json().catch(() => ({}));
-        throw new Error(errorData.message || "Gagal mengotorisasi unggahan.");
-      }
-      const { url, key, headers, signature } = await authRes.json();
+      const formData = new FormData();
+      formData.append("file", file);
 
-      // 2. Direct Upload to Private R2
-      const uploadHeaders: Record<string, string> = {
-        ...(headers || {}),
-        "Content-Type": fileMime,
-      };
-
-      const uploadRes = await fetch(url, {
-        method: "PUT",
-        headers: uploadHeaders,
-        body: file,
+      const res = await fetch(`/api/order/${publicToken}/payment-proof`, {
+        method: "POST",
+        body: formData,
       });
-      if (!uploadRes.ok) {
-        throw new Error(
-          "Gagal mengunggah file bukti pembayaran ke storage. Periksa koneksi internet Anda.",
-        );
-      }
 
-      // 3. Complete Upload
-      const completeRes = await fetch(
-        `/api/order/${publicToken}/payment-proof/complete`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key, signature }),
-        },
-      );
-      if (!completeRes.ok) {
-        const errorData = await completeRes.json().catch(() => ({}));
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
         throw new Error(
-          errorData.message || "Gagal memproses bukti pembayaran.",
+          errorData.message || "Gagal mengunggah bukti pembayaran.",
         );
       }
 
@@ -133,16 +98,9 @@ export function PaymentProofUpload({ publicToken }: { publicToken: string }) {
       router.refresh();
     } catch (err: unknown) {
       if (err instanceof Error) {
-        if (
-          err.name === "TypeError" ||
-          err.message.toLowerCase().includes("failed to fetch")
-        ) {
-          setError(
-            "Gagal mengunggah: kendala jaringan atau CORS storage. Silakan coba kembali.",
-          );
-        } else {
-          setError(err.message || "Terjadi kesalahan yang tidak terduga.");
-        }
+        setError(
+          err.message || "Terjadi kesalahan saat mengunggah bukti pembayaran.",
+        );
       } else {
         setError("Terjadi kesalahan yang tidak terduga.");
       }

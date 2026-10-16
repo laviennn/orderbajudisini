@@ -17,7 +17,8 @@ export async function GET(
         headers: {
           "Content-Type": file.mime,
           "Content-Disposition": "inline",
-          "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
+          "Cache-Control":
+            "private, no-cache, no-store, max-age=0, must-revalidate",
         },
       });
     } catch {
@@ -30,4 +31,3 @@ export async function GET(
     return new NextResponse("Not Found", { status: 404 });
   }
 }
-

@@ -38,6 +38,7 @@ export interface StorageAdapter {
   readSiteMedia(key: string, maximumBytes: number): Promise<Buffer>;
   readPaymentProof(key: string, maximumBytes: number): Promise<Buffer>;
   writeProductVariant(key: string, body: Buffer): Promise<void>;
+  writePaymentProof?(key: string, body: Buffer, mime: string): Promise<void>;
   deleteObject(purpose: StoragePurpose, key: string): Promise<void>;
 }
 
@@ -177,6 +178,19 @@ export function getStorage(): StorageAdapter {
             Body: body,
             ContentType: "image/webp",
             CacheControl: "public, max-age=31536000, immutable",
+          }),
+        ),
+      );
+    },
+    async writePaymentProof(key, body, mime) {
+      assertObjectKey(key, "payment-proof");
+      await providerCall(() =>
+        client.send(
+          new PutObjectCommand({
+            Bucket: privateBucket,
+            Key: key,
+            Body: body,
+            ContentType: mime,
           }),
         ),
       );

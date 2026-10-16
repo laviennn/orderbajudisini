@@ -271,7 +271,9 @@ export async function createReservedOrder(
         return { ...product, quantity };
       });
       const now = await databaseNow(tx);
-      if (quote.expiresAt <= now) throw new AppError("SHIPPING_QUOTE_EXPIRED");
+      if (quote.provider !== "flat" && quote.expiresAt <= now) {
+        throw new AppError("SHIPPING_QUOTE_EXPIRED");
+      }
       const env = getEnvironment();
       if (
         env.NODE_ENV === "production" &&

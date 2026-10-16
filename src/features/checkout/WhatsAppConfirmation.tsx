@@ -122,9 +122,14 @@ export function WhatsAppConfirmation({
               Chat Admin via WhatsApp
             </h3>
             <span
-              style={{ fontSize: "0.8125rem", color: "#166534", fontWeight: 500 }}
+              style={{
+                fontSize: "0.8125rem",
+                color: "#166534",
+                fontWeight: 500,
+              }}
             >
-              Pesanan {orderNumber ? `No. ${orderNumber}` : ""} &bull; Verifikasi Langsung
+              Pesanan {orderNumber ? `No. ${orderNumber}` : ""} &bull;
+              Verifikasi Langsung
             </span>
           </div>
         </div>
@@ -137,7 +142,13 @@ export function WhatsAppConfirmation({
             lineHeight: 1.55,
           }}
         >
-          Bukti transfer Anda telah tersimpan di sistem. <strong>Agar pesanan segera diverifikasi dan paket Anda langsung disiapkan hari ini</strong>, silakan klik tombol di bawah untuk mengirim pesan konfirmasi ke WhatsApp Admin toko.
+          Bukti transfer Anda telah tersimpan di sistem.{" "}
+          <strong>
+            Agar pesanan segera diverifikasi dan paket Anda langsung disiapkan
+            hari ini
+          </strong>
+          , silakan klik tombol di bawah untuk mengirim pesan konfirmasi ke
+          WhatsApp Admin toko.
         </p>
 
         {error && (
@@ -208,7 +219,8 @@ export function WhatsAppConfirmation({
           >
             <span>✓</span>
             <span>
-              Tautan WhatsApp telah dibuka. Jika aplikasi WhatsApp Anda tidak terbuka otomatis, silakan klik tombol di atas kembali.
+              Tautan WhatsApp telah dibuka. Jika aplikasi WhatsApp Anda tidak
+              terbuka otomatis, silakan klik tombol di atas kembali.
             </span>
           </div>
         )}

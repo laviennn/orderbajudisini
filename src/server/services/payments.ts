@@ -1,5 +1,5 @@
 import "server-only";
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
@@ -422,8 +422,141 @@ export async function completeProofUpload(publicToken: string, input: unknown) {
   });
 }
 
+export async function uploadPaymentProofDirect(
+  publicToken: string,
+  fileBuffer: Buffer,
+  mime: string,
+) {
+  if (!/^[a-f0-9]{64}$/.test(publicToken)) {
+    throw new AppError("VALIDATION_ERROR");
+  }
+
+  const validMimes = ["image/jpeg", "image/png", "image/webp"] as const;
+  if (!validMimes.includes(mime as (typeof validMimes)[number])) {
+    throw new AppError("VALIDATION_ERROR", {
+      file: ["Format file tidak didukung. Gunakan JPG, PNG, atau WEBP."],
+    });
+  }
+
+  if (fileBuffer.length === 0 || fileBuffer.length > 10 * 1024 * 1024) {
+    throw new AppError("VALIDATION_ERROR", {
+      file: ["Ukuran file melebihi batas maksimal 10MB."],
+    });
+  }
+
+  // Validate magic bytes
+  let isValid = false;
+  if (mime === "image/jpeg" && fileBuffer.length >= 3) {
+    isValid =
+      fileBuffer[0] === 0xff &&
+      fileBuffer[1] === 0xd8 &&
+      fileBuffer[2] === 0xff;
+  } else if (mime === "image/png" && fileBuffer.length >= 8) {
+    isValid =
+      fileBuffer[0] === 0x89 &&
+      fileBuffer[1] === 0x50 &&
+      fileBuffer[2] === 0x4e &&
+      fileBuffer[3] === 0x47 &&
+      fileBuffer[4] === 0x0d &&
+      fileBuffer[5] === 0x0a &&
+      fileBuffer[6] === 0x1a &&
+      fileBuffer[7] === 0x0a;
+  } else if (mime === "image/webp" && fileBuffer.length >= 12) {
+    isValid =
+      fileBuffer[0] === 0x52 &&
+      fileBuffer[1] === 0x49 &&
+      fileBuffer[2] === 0x46 &&
+      fileBuffer[3] === 0x46 &&
+      fileBuffer[8] === 0x57 &&
+      fileBuffer[9] === 0x45 &&
+      fileBuffer[10] === 0x42 &&
+      fileBuffer[11] === 0x50;
+  }
+
+  if (!isValid) {
+    throw new AppError("VALIDATION_ERROR", {
+      file: ["Konten file tidak sesuai format gambar yang didukung."],
+    });
+  }
+
+  return databaseOperation(async () => {
+    const db = getDatabase();
+
+    const [order] = await db
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(eq(orders.publicTokenHash, hashToken(publicToken)))
+      .limit(1);
+    if (!order) throw new AppError("NOT_FOUND");
+    if (
+      order.status !== "pending_payment" &&
+      order.status !== "payment_submitted"
+    ) {
+      throw new AppError("INVALID_ORDER_TRANSITION");
+    }
+
+    const [payment] = await db
+      .select({
+        id: payments.id,
+        status: payments.status,
+        proofObjectKey: payments.proofObjectKey,
+      })
+      .from(payments)
+      .where(eq(payments.orderId, order.id))
+      .limit(1);
+    if (!payment) throw new AppError("NOT_FOUND");
+    if (
+      !canTransitionPayment(payment.status, "submitted") &&
+      payment.status !== "submitted"
+    ) {
+      throw new AppError("INVALID_PAYMENT_TRANSITION");
+    }
+
+    const ext =
+      mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
+    const key = `payment-proof/${randomUUID()}.${ext}`;
+
+    const storage = getStorage();
+    if (storage.writePaymentProof) {
+      await storage.writePaymentProof(key, fileBuffer, mime);
+    }
+
+    const receipt = await db.transaction(async (tx) => {
+      const [saved] = await tx
+        .insert(paymentProofReceipts)
+        .values({
+          orderId: order.id,
+          objectKey: key,
+          mime,
+          bytes: fileBuffer.length,
+          validatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 1000 * 60 * 30),
+        })
+        .returning();
+      return saved;
+    });
+
+    const result = await submitAcceptedPaymentProof({
+      orderId: order.id,
+      publicToken,
+      receiptId: receipt!.id,
+    });
+
+    if (payment.proofObjectKey && payment.proofObjectKey !== key) {
+      storage
+        .deleteObject("payment-proof", payment.proofObjectKey)
+        .catch(() => {});
+    }
+
+    return result;
+  });
+}
+
 export async function resolveProofUrl(proofToken: string) {
-  const tokenMatch = proofToken?.trim().toLowerCase().match(/[a-f0-9]{64}/);
+  const tokenMatch = proofToken
+    ?.trim()
+    .toLowerCase()
+    .match(/[a-f0-9]{64}/);
   const sanitized = tokenMatch ? tokenMatch[0] : "";
   if (!sanitized) throw new AppError("VALIDATION_ERROR");
   return databaseOperation(async () => {
@@ -443,7 +576,10 @@ export async function resolveProofUrl(proofToken: string) {
 }
 
 export async function resolveProofFile(proofToken: string) {
-  const tokenMatch = proofToken?.trim().toLowerCase().match(/[a-f0-9]{64}/);
+  const tokenMatch = proofToken
+    ?.trim()
+    .toLowerCase()
+    .match(/[a-f0-9]{64}/);
   const sanitized = tokenMatch ? tokenMatch[0] : "";
   if (!sanitized) throw new AppError("VALIDATION_ERROR");
   return databaseOperation(async () => {
@@ -470,4 +606,3 @@ export async function resolveProofFile(proofToken: string) {
     };
   });
 }
-

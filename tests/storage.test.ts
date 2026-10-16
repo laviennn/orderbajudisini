@@ -75,9 +75,7 @@ describe("R2 boundary", () => {
     expect(url.searchParams.get("response-cache-control")).toBe(
       "private, no-store",
     );
-    expect(url.searchParams.get("response-content-disposition")).toBe(
-      "inline",
-    );
+    expect(url.searchParams.get("response-content-disposition")).toBe("inline");
   });
 });
 
