@@ -1,9 +1,9 @@
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { adminCategories } from "@/server/services/admin-products";
 import { CategoryEditor } from "@/features/admin/CategoryEditor";
 export default async function Categories() {
-  const actor = await requirePermission("categories.read");
+  const actor = await requirePagePermission("categories.read");
   const categories = await adminCategories();
   return (
     <main id="main-content">

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { adminRequest, errorText } from "./http";
 import { dateTime } from "@/lib/admin-operations";
+import { AdminModal } from "./AdminModal";
 type Staff = {
   id: string;
   name: string;
@@ -30,7 +31,46 @@ export function OperatorEditor({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
-  async function submit(event: FormEvent<HTMLFormElement>, reset = false) {
+  const [pendingSubmit, setPendingSubmit] = useState<{
+    action: string;
+    data: Record<string, unknown>;
+    reset: boolean;
+  } | null>(null);
+
+  async function executeSubmit(payload: {
+    action: string;
+    data: Record<string, unknown>;
+    reset: boolean;
+  }) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setPendingSubmit(null);
+    try {
+      await adminRequest("/api/admin/operators", {
+        action: payload.action,
+        ...payload.data,
+      });
+      if (selected?.id === actorId) {
+        router.replace("/admin/login");
+        router.refresh();
+        return;
+      }
+      setSelected(null);
+      setMessage(
+        payload.reset
+          ? "Password diganti. Sampaikan melalui saluran aman kepada staf."
+          : "Akun staf tersimpan.",
+      );
+      router.refresh();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>, reset = false) {
     event.preventDefault();
     const form = event.currentTarget,
       fd = new FormData(form);
@@ -45,38 +85,20 @@ export function OperatorEditor({
             updatedAt: selected.updatedAt,
           }
       : Object.fromEntries(fd);
-    if (
-      selected &&
-      !window.confirm(
-        reset
-          ? "Ganti password dan akhiri semua sesi akun ini?"
-          : "Simpan perubahan akses dan akhiri sesi lama akun ini?",
-      )
-    )
+
+    if (selected) {
+      setPendingSubmit({
+        action,
+        data: data as Record<string, unknown>,
+        reset,
+      });
       return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      await adminRequest("/api/admin/operators", { action, ...data });
-      if (selected?.id === actorId) {
-        router.replace("/admin/login");
-        router.refresh();
-        return;
-      }
-      form.reset();
-      setSelected(null);
-      setMessage(
-        reset
-          ? "Password diganti. Sampaikan melalui saluran aman kepada staf."
-          : "Akun staf tersimpan.",
-      );
-      router.refresh();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
     }
+    void executeSubmit({
+      action,
+      data: data as Record<string, unknown>,
+      reset,
+    });
   }
   return (
     <>
@@ -248,6 +270,54 @@ export function OperatorEditor({
           )}
         </section>
       )}
+
+      <AdminModal
+        isOpen={Boolean(pendingSubmit)}
+        onClose={() => !busy && setPendingSubmit(null)}
+        title={
+          pendingSubmit?.reset
+            ? "Ganti Password Operator?"
+            : "Simpan Perubahan Operator?"
+        }
+        subtitle={
+          selected ? `Akun: ${selected.name} (${selected.email})` : undefined
+        }
+        variant={pendingSubmit?.reset ? "danger" : "warning"}
+        footer={
+          <>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-cancel"
+              disabled={busy}
+              onClick={() => setPendingSubmit(null)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className={
+                pendingSubmit?.reset
+                  ? "admin-modal-btn admin-modal-btn-danger"
+                  : "admin-modal-btn admin-modal-btn-primary"
+              }
+              disabled={busy}
+              onClick={() => pendingSubmit && void executeSubmit(pendingSubmit)}
+            >
+              {busy
+                ? "Menyimpan..."
+                : pendingSubmit?.reset
+                  ? "Ya, Ganti Password"
+                  : "Ya, Simpan Perubahan"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, lineHeight: 1.6 }}>
+          {pendingSubmit?.reset
+            ? "Tindakan ini akan mengganti password dan secara otomatis mengakhiri (logout) semua sesi aktif dari akun ini. Lanjutkan?"
+            : "Tindakan ini akan menyimpan perubahan akses hak kelola dan mengakhiri sesi lama akun ini. Lanjutkan?"}
+        </p>
+      </AdminModal>
     </>
   );
 }

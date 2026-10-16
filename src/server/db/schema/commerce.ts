@@ -173,7 +173,7 @@ export const orders = pgTable(
     shippingCourier: text("shipping_courier").notNull(),
     shippingService: text("shipping_service").notNull(),
     shippingEtd: text("shipping_etd"),
-    paymentDueAt: at("payment_due_at").notNull(),
+    paymentDueAt: at("payment_due_at"),
     notes: text("notes"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -294,7 +294,7 @@ export const reservations = pgTable(
       .references(() => products.id, { onDelete: "restrict" }),
     quantity: integer("quantity").notNull(),
     status: reservationStatus("status").notNull().default("reserved"),
-    expiresAt: at("expires_at").notNull(),
+    expiresAt: at("expires_at"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -322,6 +322,7 @@ export const payments = pgTable(
       accountNumber: string;
       accountHolder: string;
       instructions?: string | null;
+      logoObjectKey?: string | null;
     }>(),
     qrisSnapshot: jsonb("qris_snapshot").$type<{
       merchantName?: string | null;

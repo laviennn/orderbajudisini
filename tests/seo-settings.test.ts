@@ -62,3 +62,24 @@ it("rejects private paths, external canonical, unsafe images and duplicate paths
     seoInput.safeParse({ ...seo, pages: [seo.pages[0], seo.pages[0]] }).success,
   ).toBe(false);
 });
+it("uses banner image as openGraph fallback when available, and falls back to defaultOgImage", () => {
+  const bannerImage =
+    "https://assets.orderbajudisini.com/site-media/hero-banner.webp";
+  const withBanner = pageMetadata("Home", "Desc", "/", bannerImage, false, seo);
+  expect(withBanner.openGraph).toMatchObject({ images: [bannerImage] });
+  expect(withBanner.twitter).toMatchObject({ images: [bannerImage] });
+
+  // When no banner image is provided, falls back to seo.defaultOgImage
+  const withoutBanner = pageMetadata("Home", "Desc", "/", null, false, seo);
+  expect(withoutBanner.openGraph).toMatchObject({
+    images: [seo.defaultOgImage],
+  });
+
+  // When neither banner nor defaultOgImage is set, images is omitted safely
+  const withoutAnyImage = pageMetadata("Home", "Desc", "/", null, false, {
+    ...seo,
+    defaultOgImage: null,
+  });
+  expect(withoutAnyImage.openGraph?.images).toBeUndefined();
+  expect(withoutAnyImage.twitter?.images).toBeUndefined();
+});

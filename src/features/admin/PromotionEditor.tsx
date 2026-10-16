@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { adminRequest, errorText } from "./http";
 import { formatIdr } from "@/lib/domain/money";
 import type { PricingResult } from "@/lib/domain/pricing";
+import { AdminModal } from "./AdminModal";
 type Target = { id: string; name: string; sku: string };
 export type Campaign = {
   id: string;
@@ -43,6 +44,9 @@ export function PromotionEditor({
   const [selected, setSelected] = useState<Campaign | null>(null),
     [targets, setTargets] = useState<Target[]>([]),
     [sample, setSample] = useState<Target[]>([]),
+    [eligibilityProduct, setEligibilityProduct] = useState<Product | null>(
+      null,
+    ),
     [results, setResults] = useState<Product[]>([]),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(1),
@@ -83,12 +87,6 @@ export function PromotionEditor({
     event.preventDefault();
     const form = event.currentTarget,
       fd = new FormData(form);
-    if (
-      !window.confirm(
-        "Simpan konfigurasi promosi ini? Harga checkout berikutnya akan mengikuti konfigurasi tersimpan.",
-      )
-    )
-      return;
     await perform(async () => {
       const date = (key: string) =>
         fd.get(key) ? new Date(String(fd.get(key))).toISOString() : null;
@@ -335,23 +333,9 @@ export function PromotionEditor({
                 </span>
                 {writable && !["sold", "reserved"].includes(p.status) && (
                   <button
+                    type="button"
                     disabled={busy}
-                    onClick={() => {
-                      if (window.confirm(`Ubah eligibility ${p.sku}?`))
-                        void perform(async () => {
-                          await adminRequest("/api/admin/promotions", {
-                            action: "eligibility",
-                            data: {
-                              productId: p.id,
-                              eligible: !p.promotionEligible,
-                            },
-                          });
-                          setPreview(null);
-                          await search(page);
-                          setMessage("Eligibility tersimpan.");
-                          router.refresh();
-                        });
-                    }}
+                    onClick={() => setEligibilityProduct(p)}
                   >
                     Ubah eligibility {p.sku}
                   </button>
@@ -428,6 +412,65 @@ export function PromotionEditor({
       {busy && <p role="status">Memproses…</p>}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
+
+      <AdminModal
+        isOpen={Boolean(eligibilityProduct)}
+        onClose={() => !busy && setEligibilityProduct(null)}
+        title="Ubah Eligibility Promosi?"
+        subtitle={
+          eligibilityProduct
+            ? `Produk: ${eligibilityProduct.name} (${eligibilityProduct.sku})`
+            : undefined
+        }
+        variant="info"
+        footer={
+          <>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-cancel"
+              disabled={busy}
+              onClick={() => setEligibilityProduct(null)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-primary"
+              disabled={busy}
+              onClick={async () => {
+                if (!eligibilityProduct) return;
+                await perform(async () => {
+                  await adminRequest("/api/admin/promotions", {
+                    action: "eligibility",
+                    data: {
+                      productId: eligibilityProduct.id,
+                      eligible: !eligibilityProduct.promotionEligible,
+                    },
+                  });
+                  setPreview(null);
+                  await search(page);
+                  setMessage("Eligibility tersimpan.");
+                  setEligibilityProduct(null);
+                  router.refresh();
+                });
+              }}
+            >
+              {busy ? "Menyimpan..." : "Ya, Ubah Eligibility"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, lineHeight: 1.6 }}>
+          Apakah Anda yakin ingin mengubah status eligibility promosi untuk SKU{" "}
+          <strong>{eligibilityProduct?.sku}</strong> menjadi{" "}
+          <strong>
+            {eligibilityProduct?.promotionEligible
+              ? "Tidak Eligible"
+              : "Eligible"}
+          </strong>
+          ?
+        </p>
+      </AdminModal>
     </>
   );
 }

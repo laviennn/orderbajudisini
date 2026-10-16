@@ -257,7 +257,7 @@ describe("Payment Proof Integration", () => {
     ).rejects.toThrowError("Perubahan status pesanan tidak diizinkan.");
   });
 
-  it("fails completion if reservation is expired", async () => {
+  it("allows completion without reservation expiration barrier", async () => {
     const { publicToken, order } = await createOrder();
 
     const auth = await authorizeProofUpload(publicToken, {
@@ -270,18 +270,17 @@ describe("Payment Proof Integration", () => {
     ]);
     objects.set(auth.key, { body: validJpeg, mime: "image/jpeg" });
 
-    // Expire order paymentDueAt
+    // Even if an older timestamp exists on paymentDueAt, proof submission is not blocked
     await database.db
       .update(s.orders)
       .set({ paymentDueAt: sql`clock_timestamp() - interval '1 minute'` })
       .where(eq(s.orders.id, order.id));
 
-    await expect(
-      completeProofUpload(publicToken, {
-        key: auth.key,
-        signature: auth.signature,
-      }),
-    ).rejects.toThrowError("Batas waktu reservasi telah berakhir.");
+    const result = await completeProofUpload(publicToken, {
+      key: auth.key,
+      signature: auth.signature,
+    });
+    expect(result.status).toBe("submitted");
   });
 
   it("cleans up old proof when replaced", async () => {

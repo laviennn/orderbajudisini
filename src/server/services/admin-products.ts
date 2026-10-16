@@ -1,5 +1,17 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { withStaff } from "@/server/auth/authorize";
 import { assertPermission } from "@/server/auth/policy";
@@ -9,36 +21,100 @@ import {
   productMeasurements,
   productImages,
   reservations,
+  orders,
 } from "@/server/db/schema";
 import type { Transaction } from "@/server/db/operations";
 import {
   productEditorInput,
   categoryEditorInput,
+  initialSlug,
 } from "@/features/admin/validation";
 import { AppError } from "@/lib/errors";
 import { writeAudit } from "./audit";
 import { primaryImage, publicImage } from "@/server/repositories/catalog";
+import { finishReservations } from "./inventory";
+import { writeOrderState } from "./order-state";
+
+export async function releaseExpiredProductReservations(
+  tx: Transaction,
+  id: string,
+) {
+  const expiredCandidates = await tx
+    .select({
+      id: reservations.id,
+      orderId: reservations.orderId,
+    })
+    .from(reservations)
+    .innerJoin(orders, eq(reservations.orderId, orders.id))
+    .where(
+      and(
+        eq(reservations.productId, id),
+        eq(reservations.status, "reserved"),
+        eq(orders.status, "pending_payment"),
+        or(
+          and(
+            isNotNull(orders.paymentDueAt),
+            lte(orders.paymentDueAt, sql`now()`),
+          ),
+          and(
+            isNull(orders.paymentDueAt),
+            lte(orders.createdAt, sql`now() - interval '30 minutes'`),
+          ),
+        ),
+      ),
+    );
+
+  const seenOrders = new Set<string>();
+  for (const exp of expiredCandidates) {
+    if (seenOrders.has(exp.orderId)) continue;
+    seenOrders.add(exp.orderId);
+    await finishReservations(tx, exp.orderId, "released");
+    const [expiredOrder] = await tx
+      .select()
+      .from(orders)
+      .where(eq(orders.id, exp.orderId))
+      .for("update");
+    if (expiredOrder && expiredOrder.status === "pending_payment") {
+      await writeOrderState(tx, expiredOrder, "expired", null);
+    }
+  }
+}
+
 export async function lockEditableProduct(tx: Transaction, id: string) {
   z.uuid().parse(id);
+
+  await releaseExpiredProductReservations(tx, id);
+
   const [p] = await tx
     .select()
     .from(products)
     .where(eq(products.id, id))
     .for("update");
   if (!p) throw new AppError("NOT_FOUND");
+
   const held = await tx
-    .select({ id: reservations.id })
+    .select({
+      id: reservations.id,
+      orderNumber: orders.orderNumber,
+      orderStatus: orders.status,
+    })
     .from(reservations)
+    .innerJoin(orders, eq(reservations.orderId, orders.id))
     .where(
       and(eq(reservations.productId, id), eq(reservations.status, "reserved")),
     )
+    .orderBy(desc(orders.createdAt))
     .limit(1);
-  if (p.status === "sold" || p.status === "reserved" || held.length)
+
+  if (p.status === "sold" || p.status === "reserved" || held.length) {
+    const activeOrder = held[0];
+    const orderMsg = activeOrder
+      ? `Produk sedang terikat dalam pesanan ${activeOrder.orderNumber} (${activeOrder.orderStatus}). Selesaikan, verifikasi, atau batalkan pesanan tersebut terlebih dahulu.`
+      : "Produk terjual/dipesan tidak dapat diubah melalui editor katalog.";
     throw new AppError("CONFLICT", {
-      status: [
-        "Produk terjual/dipesan tidak dapat diubah melalui editor katalog.",
-      ],
+      status: [orderMsg],
     });
+  }
   return p;
 }
 export function checkRevision(current: Date, submitted?: string) {
@@ -57,12 +133,42 @@ export async function saveProduct(input: unknown) {
     isUpdate ? "products.update" : "products.create",
     async (tx, actor) => {
       const data = productEditorInput.parse(input);
-      const { id, updatedAt, confirmSlugChange, measurements, ...values } =
-        data;
       // Use the same lock ordering as pricing/checkout before taking product rows.
       await tx.execute(sql`select pg_advisory_xact_lock(73102)`);
-      const old = id ? await lockEditableProduct(tx, id) : null;
-      if (old) checkRevision(old.updatedAt, updatedAt);
+      const old = data.id ? await lockEditableProduct(tx, data.id) : null;
+      if (old) checkRevision(old.updatedAt, data.updatedAt);
+
+      const sku = data.sku?.trim() || old?.sku || `SKU-${Date.now()}`;
+      const slug =
+        data.slug?.trim() ||
+        old?.slug ||
+        initialSlug(data.name) ||
+        `produk-${Date.now().toString(36)}`;
+      const description = data.description?.trim() || "";
+      const conditionNotes =
+        data.conditionNotes?.trim() || old?.conditionNotes || "";
+      const {
+        id: _id,
+        updatedAt: _up,
+        confirmSlugChange,
+        measurements,
+        ...rawValues
+      } = data;
+      void _id;
+      void _up;
+      const values = {
+        ...rawValues,
+        sku,
+        slug,
+        description,
+        conditionNotes,
+        compareAtPrice: data.compareAtPrice ?? null,
+        weightGrams: data.weightGrams ?? null,
+        sizeLabel: data.sizeLabel ?? null,
+        shortDescription: data.shortDescription ?? null,
+        conditionGrade: data.conditionGrade ?? null,
+        defectNotes: data.defectNotes ?? null,
+      };
       const [category] = await tx
         .select()
         .from(categories)
@@ -79,7 +185,7 @@ export async function saveProduct(input: unknown) {
         (old && old.promotionEligible !== data.promotionEligible)
       )
         assertPermission(actor, "promotions.manage");
-      if (old?.publishedAt && old.slug !== data.slug && !confirmSlugChange)
+      if (old?.publishedAt && old.slug !== slug && !confirmSlugChange)
         throw new AppError("VALIDATION_ERROR", {
           slug: ["Konfirmasi perubahan URL produk yang pernah dipublikasikan."],
         });
@@ -89,7 +195,7 @@ export async function saveProduct(input: unknown) {
         .where(
           and(
             old ? ne(products.id, old.id) : undefined,
-            or(eq(products.sku, data.sku), eq(products.slug, data.slug)),
+            or(eq(products.sku, sku), eq(products.slug, slug)),
           ),
         )
         .limit(2);
@@ -97,10 +203,10 @@ export async function saveProduct(input: unknown) {
         throw new AppError(
           "VALIDATION_ERROR",
           Object.fromEntries([
-            ...(duplicates.some((p) => p.sku === data.sku)
+            ...(duplicates.some((p) => p.sku === sku)
               ? [["sku", ["SKU sudah digunakan."]]]
               : []),
-            ...(duplicates.some((p) => p.slug === data.slug)
+            ...(duplicates.some((p) => p.slug === slug)
               ? [["slug", ["Slug sudah digunakan."]]]
               : []),
           ]),
@@ -223,16 +329,10 @@ export async function changeProductStatus(input: unknown) {
             ),
           )
           .limit(1);
-        if (
-          !c?.active ||
-          p.quantity < 1 ||
-          !p.description.trim() ||
-          !p.conditionNotes.trim() ||
-          !images.length
-        )
+        if (!c?.active || p.quantity < 1 || !images.length)
           throw new AppError("VALIDATION_ERROR", {
             publish: [
-              "Lengkapi kategori aktif, stok, deskripsi, kondisi, dan minimal satu foto produk sebelum publikasi.",
+              "Lengkapi kategori aktif, stok, dan minimal satu foto produk sebelum publikasi.",
             ],
           });
       }
@@ -266,13 +366,14 @@ export async function changeProductStatus(input: unknown) {
 export async function adminProduct(id: string) {
   return withStaff("products.read", async (tx) => {
     z.uuid().parse(id);
+    await releaseExpiredProductReservations(tx, id);
     const [p] = await tx
       .select()
       .from(products)
       .where(eq(products.id, id))
       .limit(1);
     if (!p) throw new AppError("NOT_FOUND");
-    const [measurements, images] = await Promise.all([
+    const [measurements, images, held] = await Promise.all([
       tx
         .select()
         .from(productMeasurements)
@@ -285,11 +386,27 @@ export async function adminProduct(id: string) {
         .where(eq(productImages.productId, id))
         .orderBy(asc(productImages.sortOrder), asc(productImages.id))
         .limit(120),
+      tx
+        .select({
+          orderNumber: orders.orderNumber,
+          orderStatus: orders.status,
+        })
+        .from(reservations)
+        .innerJoin(orders, eq(reservations.orderId, orders.id))
+        .where(
+          and(
+            eq(reservations.productId, id),
+            eq(reservations.status, "reserved"),
+          ),
+        )
+        .orderBy(desc(orders.createdAt))
+        .limit(1),
     ]);
     return {
       ...p,
       updatedAt: p.updatedAt.toISOString(),
       publishedAt: p.publishedAt?.toISOString() ?? null,
+      holdingOrder: held[0] ?? null,
       measurements: measurements.map((m) => ({
         key: m.key,
         label: m.label,

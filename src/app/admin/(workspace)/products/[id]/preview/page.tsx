@@ -40,12 +40,20 @@ export default async function Preview({
         <section className="admin-preview-copy">
           <h2>{p.name}</h2>
           <p className="detail-price">{formatIdr(p.price)}</p>
-          <p>Ukuran: {p.sizeLabel || "Belum diisi"}</p>
-          <h3>Deskripsi</h3>
-          <p className="prose-copy">{p.description}</p>
-          <h3>Kondisi</h3>
-          <p>{p.conditionGrade}</p>
-          <p className="prose-copy">{p.conditionNotes}</p>
+          {p.sizeLabel && <p>Ukuran: {p.sizeLabel}</p>}
+          {p.description && (
+            <>
+              <h3>Deskripsi</h3>
+              <p className="prose-copy">{p.description}</p>
+            </>
+          )}
+          {p.conditionNotes && (
+            <>
+              <h3>Kondisi</h3>
+              {p.conditionGrade && <p>{p.conditionGrade}</p>}
+              <p className="prose-copy">{p.conditionNotes}</p>
+            </>
+          )}
           {p.defectNotes && (
             <>
               <h3>Catatan cacat</h3>

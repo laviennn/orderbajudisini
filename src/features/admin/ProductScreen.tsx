@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import {
   adminCategories,
@@ -8,7 +8,7 @@ import {
 import { AppError } from "@/lib/errors";
 import { ProductEditor } from "./ProductEditor";
 export async function ProductScreen({ id }: { id?: string }) {
-  const actor = await requirePermission(
+  const actor = await requirePagePermission(
     id ? "products.read" : "products.create",
   );
   let product = null;

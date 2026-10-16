@@ -3,7 +3,7 @@ import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDatabase } from "@/server/db";
 import { databaseOperation } from "@/server/db/operations";
-import { categories, products } from "@/server/db/schema";
+import { categories, productImages, products } from "@/server/db/schema";
 import { priceLockedProducts } from "./pricing";
 import { primaryImage, publicImage } from "@/server/repositories/catalog";
 export const cartInput = z
@@ -43,19 +43,77 @@ export async function validateCart(input: unknown) {
         )
         .orderBy(products.id)
         .for("share");
-      const available = rows.filter(
+
+      const matchedProductIds = new Set(rows.map((r) => r.id));
+      const remainingIds = ids.filter((id) => !matchedProductIds.has(id));
+      const imageRows = remainingIds.length
+        ? await tx
+            .select({
+              id: productImages.id,
+              productId: products.id,
+              image: {
+                objectKey: productImages.objectKey,
+                altText: productImages.altText,
+                width: productImages.width,
+                height: productImages.height,
+                bytes: productImages.bytes,
+                isDefectImage: productImages.isDefectImage,
+                sortOrder: productImages.sortOrder,
+              },
+              name: products.name,
+              slug: products.slug,
+              price: products.price,
+              status: products.status,
+              quantity: products.quantity,
+              promotionEligible: products.promotionEligible,
+              categoryId: products.categoryId,
+              sortOrder: productImages.sortOrder,
+            })
+            .from(productImages)
+            .innerJoin(products, eq(productImages.productId, products.id))
+            .innerJoin(categories, eq(products.categoryId, categories.id))
+            .where(
+              and(
+                inArray(productImages.id, remainingIds),
+                inArray(products.status, ["active", "sold", "reserved"]),
+                eq(categories.active, true),
+              ),
+            )
+            .for("share")
+        : [];
+
+      const normalizedImageRows = imageRows.map((img) => ({
+        id: img.id,
+        image: img.image,
+        name: `${img.name} (Baju #${img.sortOrder + 1})`,
+        slug: img.slug,
+        price: img.price,
+        status: img.status,
+        quantity: img.quantity,
+        promotionEligible: img.promotionEligible,
+        categoryId: img.categoryId,
+      }));
+
+      const allRows = [...rows, ...normalizedImageRows];
+      const available = allRows.filter(
         (p) => p.status === "active" && p.quantity > 0,
       );
       const calculated = available.length
         ? await priceLockedProducts(
             tx,
-            available.map((p) => ({ ...p, quantity: 1 })),
+            available.map((p) => ({
+              id: p.id,
+              price: p.price ?? 50000,
+              quantity: 1,
+              promotionEligible: p.promotionEligible,
+              categoryId: p.categoryId,
+            })),
             new Date(),
           )
         : null;
       return {
         items: ids.map((id) => {
-          const row = rows.find((p) => p.id === id);
+          const row = allRows.find((p) => p.id === id);
           return row
             ? {
                 id,

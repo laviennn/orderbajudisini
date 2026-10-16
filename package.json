@@ -20,7 +20,9 @@
     "db:check": "drizzle-kit check",
     "db:migrate": "drizzle-kit migrate",
     "admin:bootstrap": "node --conditions=react-server --import tsx scripts/bootstrap-owner.ts",
+    "admin:reset-password": "node --conditions=react-server --import tsx scripts/reset-password.ts",
     "db:seed:dev": "node --conditions=react-server --import tsx scripts/seed-development.ts",
+    "r2:cors": "node scripts/setup-r2-cors.mjs",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

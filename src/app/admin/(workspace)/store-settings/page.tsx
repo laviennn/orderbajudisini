@@ -1,10 +1,10 @@
 import { getAdminStoreSettings } from "@/server/services/settings";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { getStorage } from "@/server/storage/r2";
 import { StoreEditor } from "@/features/admin/StoreEditor";
 export default async function StorePage() {
-  const actor = await requirePermission("settings.read");
+  const actor = await requirePagePermission("settings.read");
   const row = await getAdminStoreSettings();
   return (
     <main id="main-content">

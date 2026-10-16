@@ -1,6 +1,16 @@
 import "server-only";
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { sumMoney } from "@/lib/domain/money";
@@ -143,7 +153,8 @@ export async function createReservedOrder(
         .from(storeSettings)
         .where(eq(storeSettings.id, 1))
         .for("share");
-      if (!settings?.minutes) throw new AppError("NOT_CONFIGURED");
+      if (!settings) throw new AppError("NOT_CONFIGURED");
+      const minutes = settings.minutes ?? 30;
       const [address] = await tx
         .select()
         .from(addresses)
@@ -194,17 +205,46 @@ export async function createReservedOrder(
         )
         .for("update");
       if (!quote) throw new AppError("INVALID_SHIPPING_SELECTION");
+      const requestedIds = data.items.map((i) => i.productId);
       const locked = await tx
         .select()
         .from(products)
-        .where(
-          inArray(
-            products.id,
-            data.items.map((i) => i.productId),
-          ),
-        )
+        .where(inArray(products.id, requestedIds))
         .orderBy(asc(products.id))
         .for("update");
+
+      const imageParentsMap = new Map<
+        string,
+        { parentId: string; key: string }
+      >();
+      if (locked.length < requestedIds.length) {
+        const missing = requestedIds.filter(
+          (id) => !locked.some((r) => r.id === id),
+        );
+        const imageParents = await tx
+          .select({
+            imageId: productImages.id,
+            objectKey: productImages.objectKey,
+            sortOrder: productImages.sortOrder,
+            product: products,
+          })
+          .from(productImages)
+          .innerJoin(products, eq(productImages.productId, products.id))
+          .where(inArray(productImages.id, missing))
+          .for("update");
+
+        for (const ip of imageParents) {
+          imageParentsMap.set(ip.imageId, {
+            parentId: ip.product.id,
+            key: ip.objectKey,
+          });
+          locked.push({
+            ...ip.product,
+            id: ip.imageId,
+            name: `${ip.product.name} (Baju #${ip.sortOrder + 1})`,
+          });
+        }
+      }
       if (locked.length !== data.items.length)
         throw new AppError("PRODUCT_UNAVAILABLE");
       const categoryRows = await tx
@@ -240,9 +280,15 @@ export async function createReservedOrder(
         throw new AppError("SHIPPING_NOT_CONFIGURED");
       const origin = destinationSchema.safeParse(settings.shippingOrigin);
       if (!origin.success) throw new AppError("SHIPPING_ORIGIN_INVALID");
+      const allowedProvider =
+        quote.provider === "flat"
+          ? true
+          : env.SHIPPING_PROVIDER &&
+            quote.provider.toLowerCase() ===
+              env.SHIPPING_PROVIDER.toLowerCase();
+
       if (
-        !env.SHIPPING_PROVIDER ||
-        quote.provider !== env.SHIPPING_PROVIDER ||
+        !allowedProvider ||
         quote.contextFingerprint !==
           shippingContextFingerprint(origin.data, address)
       )
@@ -260,7 +306,7 @@ export async function createReservedOrder(
       )
         throw new AppError("INVALID_SHIPPING_SELECTION");
       const pricing = await priceLockedProducts(tx, priced, now);
-      const due = new Date(now.getTime() + settings.minutes * 60000);
+      const due = minutes ? new Date(now.getTime() + minutes * 60000) : null;
       if (
         options &&
         pricing.merchandiseTotal !== options.expectedMerchandiseTotal
@@ -328,9 +374,10 @@ export async function createReservedOrder(
       await tx.insert(orderItems).values(
         pricing.lines.map((line) => {
           const product = locked.find((p) => p.id === line.productId)!;
+          const parentInfo = imageParentsMap.get(product.id);
           return {
             orderId: id,
-            productId: product.id,
+            productId: parentInfo?.parentId ?? product.id,
             skuSnapshot: product.sku,
             nameSnapshot: product.name,
             slugSnapshot: product.slug,
@@ -344,7 +391,9 @@ export async function createReservedOrder(
               .filter(Boolean)
               .join("\n"),
             imageSnapshot:
-              images.find((i) => i.productId === product.id)?.key ?? null,
+              parentInfo?.key ??
+              images.find((i) => i.productId === product.id)?.key ??
+              null,
             quantity: line.quantity,
             originalLineTotal: line.originalTotal,
             discountTotal: line.discount,
@@ -369,7 +418,22 @@ export async function createReservedOrder(
             allocations: p.allocations,
           })),
         );
-      await reserveLockedProducts(tx, id, data.items, due);
+      const itemsToReserve = data.items.map((item) => {
+        const parentId =
+          imageParentsMap.get(item.productId)?.parentId ?? item.productId;
+        return { productId: parentId, quantity: item.quantity };
+      });
+      const reserveMap = new Map<string, number>();
+      for (const item of itemsToReserve) {
+        reserveMap.set(
+          item.productId,
+          (reserveMap.get(item.productId) ?? 0) + item.quantity,
+        );
+      }
+      const consolidatedReserve = Array.from(reserveMap.entries()).map(
+        ([productId, quantity]) => ({ productId, quantity }),
+      );
+      await reserveLockedProducts(tx, id, consolidatedReserve, due);
       await tx.insert(payments).values({
         orderId: id,
         method: data.paymentMethod,
@@ -380,6 +444,7 @@ export async function createReservedOrder(
               accountNumber: bank.accountNumber,
               accountHolder: bank.accountHolder,
               instructions: bank.instructions,
+              logoObjectKey: bank.logoObjectKey ?? null,
             }
           : null,
         qrisSnapshot: qris
@@ -440,10 +505,19 @@ export async function releaseExpiredReservations(limit = 50) {
       .where(
         and(
           eq(orders.status, "pending_payment"),
-          lte(orders.paymentDueAt, sql`now()`),
+          or(
+            and(
+              isNotNull(orders.paymentDueAt),
+              lte(orders.paymentDueAt, sql`now()`),
+            ),
+            and(
+              isNull(orders.paymentDueAt),
+              lte(orders.createdAt, sql`now() - interval '30 minutes'`),
+            ),
+          ),
         ),
       )
-      .orderBy(asc(orders.paymentDueAt))
+      .orderBy(asc(orders.createdAt))
       .limit(limit);
     let expired = 0;
     for (const candidate of candidates)
@@ -455,7 +529,16 @@ export async function releaseExpiredReservations(limit = 50) {
             and(
               eq(orders.id, candidate.id),
               eq(orders.status, "pending_payment"),
-              lte(orders.paymentDueAt, sql`now()`),
+              or(
+                and(
+                  isNotNull(orders.paymentDueAt),
+                  lte(orders.paymentDueAt, sql`now()`),
+                ),
+                and(
+                  isNull(orders.paymentDueAt),
+                  lte(orders.createdAt, sql`now() - interval '30 minutes'`),
+                ),
+              ),
             ),
           )
           .for("update", { skipLocked: true });

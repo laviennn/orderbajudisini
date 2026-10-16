@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminOrderDetail } from "@/server/services/admin-orders";
-import { requirePermission } from "@/server/auth/authorize";
+import { requirePagePermission } from "@/app/admin/page-auth";
 import { hasPermission } from "@/server/auth/policy";
 import { AppError } from "@/lib/errors";
 import { orderLabels, paymentLabels, dateTime } from "@/lib/admin-operations";
@@ -12,7 +12,7 @@ export default async function OrderDetail({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const actor = await requirePermission("orders.read");
+  const actor = await requirePagePermission("orders.read");
   const { id } = await params;
   let data;
   try {
@@ -69,7 +69,11 @@ export default async function OrderDetail({
             </div>
             <div>
               <dt>Batas pembayaran</dt>
-              <dd>{dateTime(order.paymentDueAt)} WIB</dd>
+              <dd>
+                {order.paymentDueAt
+                  ? `${dateTime(order.paymentDueAt)} WIB`
+                  : "Tidak ada batas waktu"}
+              </dd>
             </div>
             <div>
               <dt>Kurir / layanan</dt>

@@ -1,12 +1,8 @@
 import Link from "next/link";
-import { formatIdr } from "@/lib/domain/money";
-import {
-  availabilityLabel,
-  catalogUrl,
-  type CatalogFilter,
-} from "@/lib/catalog";
+import { catalogUrl, type CatalogFilter } from "@/lib/catalog";
 import type { CatalogProduct } from "@/server/repositories/catalog";
-import { AnalyticsView, ProductLink, ProductPhoto } from "./Interactions";
+import { AnalyticsView, InteractiveProductCard } from "./Interactions";
+
 export function ProductGrid({
   products,
   listName = "Produk",
@@ -29,27 +25,13 @@ export function ProductGrid({
   return (
     <>
       <AnalyticsView event="view_item_list" ids={products.map((p) => p.id)} />
-      <ul className="product-grid" aria-label={listName}>
+      <ul className="product-grid boutique-grid" aria-label={listName}>
         {products.map((p, index) => (
           <li key={p.id}>
-            <ProductLink id={p.id} href={`/products/${p.slug}`}>
-              <div className="product-photo">
-                <ProductPhoto
-                  image={p.image}
-                  priority={priorityFirst && index === 0}
-                />
-              </div>
-              <div className="product-caption">
-                <h3>{p.name}</h3>
-                <span>{formatIdr(p.price)}</span>
-              </div>
-              <div className="product-secondary">
-                {p.sizeLabel && <span>Ukuran {p.sizeLabel}</span>}
-                {p.status !== "active" && (
-                  <span>{availabilityLabel[p.status]}</span>
-                )}
-              </div>
-            </ProductLink>
+            <InteractiveProductCard
+              product={p}
+              priority={priorityFirst && index === 0}
+            />
           </li>
         ))}
       </ul>

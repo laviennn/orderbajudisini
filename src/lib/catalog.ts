@@ -77,10 +77,12 @@ export const availabilityLabel = {
   archived: "Tidak tersedia",
 } as const;
 export type PublicImage = {
+  id?: string;
   sources?: { url: string; width: number }[];
   url: string;
   alt: string;
   width: number;
   height: number;
   defect: boolean;
+  sortOrder?: number;
 };

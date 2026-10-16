@@ -81,6 +81,13 @@ export async function saveBankAccount(input: unknown) {
       })
       .strict()
       .parse(input);
+    if (data.logoObjectKey && data.logoObjectKey.startsWith("payment-proof/")) {
+      throw new AppError("VALIDATION_ERROR", {
+        logoObjectKey: [
+          "Logo tidak boleh menggunakan direktori pembayaran pribadi.",
+        ],
+      });
+    }
     const { id, ...values } = data;
     const rows = id
       ? await tx

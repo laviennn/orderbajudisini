@@ -137,40 +137,16 @@ export function Cart() {
           <aside className="cart-summary" aria-labelledby="summary-title">
             <h2 id="summary-title">Ringkasan produk</h2>
             {data.pricing ? (
-              <>
-                <dl>
-                  <div>
-                    <dt>Subtotal produk tersedia</dt>
-                    <dd>{formatIdr(data.pricing.originalSubtotal)}</dd>
-                  </div>
-                  {data.pricing.promotionDiscount > 0 && (
-                    <div>
-                      <dt>Potongan bundle</dt>
-                      <dd>−{formatIdr(data.pricing.promotionDiscount)}</dd>
-                    </div>
-                  )}
-                  {data.pricing.promotionSurcharge > 0 && (
-                    <div>
-                      <dt>Penyesuaian harga bundle</dt>
-                      <dd>+{formatIdr(data.pricing.promotionSurcharge)}</dd>
-                    </div>
-                  )}
-                  <div className="cart-total">
-                    <dt>Total produk</dt>
-                    <dd>{formatIdr(data.pricing.merchandiseTotal)}</dd>
-                  </div>
-                </dl>
-                {data.pricing.bundles.map((bundle, i) => (
-                  <p className="small-note" key={i}>
-                    {bundle.count} bundle × {bundle.quantity} produk diterapkan
-                    ({formatIdr(bundle.price)} per bundle).
-                  </p>
-                ))}
-              </>
+              <dl>
+                <div className="cart-total">
+                  <dt>Total produk</dt>
+                  <dd>{formatIdr(data.pricing.merchandiseTotal)}</dd>
+                </div>
+              </dl>
             ) : (
               <p>Tidak ada produk tersedia untuk dihitung.</p>
             )}
-            <p className="small-note">Belum termasuk ongkos kirim.</p>
+
             {data.items.every((item) => item.available) && data.pricing ? (
               <Link className="primary-action purchase-action" href="/checkout">
                 Lanjut ke checkout

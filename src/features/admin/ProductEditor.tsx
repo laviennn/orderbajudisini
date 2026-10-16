@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { adminProduct } from "@/server/services/admin-products";
 import { initialSlug } from "./validation";
 import { adminRequest, errorText } from "./http";
 import { MediaUploader } from "./MediaUploader";
+import { AdminModal } from "./AdminModal";
 type Product = Awaited<ReturnType<typeof adminProduct>>;
 export function ProductEditor({
   product,
@@ -23,19 +24,24 @@ export function ProductEditor({
   };
 }) {
   const router = useRouter();
-  const slugEdited = useRef(Boolean(product));
   const [revision, setRevision] = useState(product?.updatedAt);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pendingStatusAction, setPendingStatusAction] = useState<
+    "publish" | "draft" | "archive" | null
+  >(null);
   const [measurements, setMeasurements] = useState(() =>
     (product?.measurements ?? []).map((m, i) => ({
       ...m,
       rowId: `existing-${i}`,
     })),
   );
-  const locked = product?.status === "sold" || product?.status === "reserved";
+  const locked =
+    product?.status === "sold" ||
+    product?.status === "reserved" ||
+    Boolean(product?.holdingOrder);
   const editable = rights.edit && !locked;
   const field = (
     name: keyof NonNullable<typeof product>,
@@ -58,32 +64,38 @@ export function ProductEditor({
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const fd = new FormData(event.currentTarget);
-    const text = (key: string) => String(fd.get(key) ?? "");
-    const optionalNumber = (key: string) =>
-      text(key) === "" ? null : Number(text(key));
+    const text = (key: string) => String(fd.get(key) ?? "").trim();
+
+    const name = text("name");
+    const autoSku = product?.sku || `SKU-${Date.now()}`;
+    const autoSlug =
+      product?.slug || initialSlug(name) || `produk-${Date.now().toString(36)}`;
+    const description = text("description");
+    const conditionNotes = product?.conditionNotes || "";
+
     const data = {
       ...(product ? { id: product.id, updatedAt: revision } : {}),
-      confirmSlugChange: fd.get("confirmSlugChange") === "on",
-      name: text("name"),
-      sku: text("sku"),
-      slug: text("slug"),
+      confirmSlugChange: true,
+      name,
+      sku: autoSku,
+      slug: autoSlug,
       categoryId: text("categoryId"),
-      brand: text("brand"),
-      description: text("description"),
-      shortDescription: text("shortDescription"),
+      brand: text("brand") || null,
+      description,
+      shortDescription: null,
       price: Number(text("price")),
-      compareAtPrice: optionalNumber("compareAtPrice"),
-      sizeLabel: text("sizeLabel"),
-      conditionGrade: text("conditionGrade"),
-      conditionNotes: text("conditionNotes"),
-      defectNotes: text("defectNotes"),
+      compareAtPrice: null,
+      sizeLabel: null,
+      conditionGrade: null,
+      conditionNotes,
+      defectNotes: null,
       quantity: Number(text("quantity")),
-      weightGrams: optionalNumber("weightGrams"),
+      weightGrams: null,
       promotionEligible: rights.promotion
         ? fd.get("promotionEligible") === "on"
         : (product?.promotionEligible ?? false),
-      seoTitle: text("seoTitle"),
-      seoDescription: text("seoDescription"),
+      seoTitle: text("seoTitle") || null,
+      seoDescription: text("seoDescription") || null,
       measurements: measurements.map((m) => ({
         key: m.key,
         label: text(`${m.rowId}-label`),
@@ -110,17 +122,11 @@ export function ProductEditor({
       setBusy(false);
     }
   }
-  async function status(action: "publish" | "draft" | "archive") {
+  async function executeStatusChange(action: "publish" | "draft" | "archive") {
     if (!product) return;
-    if (
-      (dirty || action !== "publish") &&
-      !window.confirm(
-        `${dirty ? "Ada perubahan yang belum disimpan. " : ""}Tindakan ini menggunakan data terakhir yang tersimpan. Lanjutkan?`,
-      )
-    )
-      return;
     setBusy(true);
     setError("");
+    setPendingStatusAction(null);
     try {
       await adminRequest(`/api/admin/products/${product.id}/status`, {
         action,
@@ -131,6 +137,15 @@ export function ProductEditor({
       setError(errorText(e));
       setBusy(false);
     }
+  }
+
+  async function status(action: "publish" | "draft" | "archive") {
+    if (!product) return;
+    if (dirty || action !== "publish") {
+      setPendingStatusAction(action);
+      return;
+    }
+    await executeStatusChange(action);
   }
   return (
     <>
@@ -148,12 +163,30 @@ export function ProductEditor({
         )}
       </div>
       {product && (
-        <p className="small-note">
-          Status: {product.status}.{" "}
-          {locked
-            ? "Produk terjual/dipesan dikunci dari perubahan katalog."
-            : "Media dikelola terpisah dari formulir informasi."}
-        </p>
+        <div style={{ marginBottom: "1rem" }}>
+          <p className="small-note">
+            Status: <strong>{product.status}</strong>.{" "}
+            {product.holdingOrder ? (
+              <span
+                style={{
+                  display: "inline-block",
+                  color: "#d97706",
+                  fontWeight: 600,
+                  marginTop: "0.25rem",
+                }}
+              >
+                ⚠️ Produk sedang terikat dalam pesanan{" "}
+                {product.holdingOrder.orderNumber} (
+                {product.holdingOrder.orderStatus}). Formulir dikunci agar tidak
+                terjadi tumpang tindih data transaksi.
+              </span>
+            ) : locked ? (
+              "Produk terjual/dipesan dikunci dari perubahan katalog."
+            ) : (
+              "Media dikelola terpisah dari formulir informasi."
+            )}
+          </p>
+        </div>
       )}
       {!categories.length && (
         <p role="alert">Buat kategori terlebih dahulu di menu Kategori.</p>
@@ -164,6 +197,68 @@ export function ProductEditor({
         </p>
       )}
       {message && <p role="status">{message}</p>}
+
+      <AdminModal
+        isOpen={Boolean(pendingStatusAction)}
+        onClose={() => !busy && setPendingStatusAction(null)}
+        title={
+          pendingStatusAction === "archive"
+            ? "Arsipkan Produk?"
+            : pendingStatusAction === "draft"
+              ? "Kembalikan ke Draf?"
+              : "Publikasikan Produk?"
+        }
+        subtitle={
+          dirty
+            ? "Perhatian: Ada formulir yang belum disimpan"
+            : "Konfirmasi perubahan status produk katalog"
+        }
+        variant={pendingStatusAction === "archive" ? "danger" : "warning"}
+        footer={
+          <>
+            <button
+              type="button"
+              className="admin-modal-btn admin-modal-btn-cancel"
+              disabled={busy}
+              onClick={() => setPendingStatusAction(null)}
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              className={
+                pendingStatusAction === "archive"
+                  ? "admin-modal-btn admin-modal-btn-danger"
+                  : "admin-modal-btn admin-modal-btn-primary"
+              }
+              disabled={busy}
+              onClick={() =>
+                pendingStatusAction &&
+                void executeStatusChange(pendingStatusAction)
+              }
+            >
+              {busy ? "Memproses..." : "Lanjutkan Perubahan"}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, lineHeight: 1.6 }}>
+          {dirty && (
+            <span
+              style={{
+                display: "block",
+                color: "#b45309",
+                fontWeight: 600,
+                marginBottom: "0.5rem",
+              }}
+            >
+              ⚠️ Ada perubahan pada formulir yang belum Anda simpan.
+            </span>
+          )}
+          Tindakan ini akan mengubah status produk menggunakan data terakhir
+          yang tersimpan di server. Lanjutkan?
+        </p>
+      </AdminModal>
       <form
         className="admin-editor"
         onSubmit={save}
@@ -172,35 +267,14 @@ export function ProductEditor({
         <fieldset disabled={!editable || busy}>
           <legend>Informasi dasar</legend>
           <div className="editor-grid">
-            <label>
+            <label style={{ gridColumn: "1 / -1" }}>
               Nama produk
               <input
                 name="name"
                 required
                 maxLength={200}
+                placeholder="Contoh: Gamis Silk Floral Vintage"
                 defaultValue={product?.name ?? ""}
-                onChange={(e) => {
-                  if (!slugEdited.current) {
-                    const input =
-                      e.currentTarget.form?.elements.namedItem("slug");
-                    if (input instanceof HTMLInputElement)
-                      input.value = initialSlug(e.currentTarget.value);
-                  }
-                }}
-              />
-            </label>
-            {field("sku", "SKU", { required: true, maxLength: 80 })}
-            <label>
-              Slug / URL
-              <input
-                name="slug"
-                required
-                pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                maxLength={160}
-                defaultValue={product?.slug ?? ""}
-                onChange={() => {
-                  slugEdited.current = true;
-                }}
               />
             </label>
             <label>
@@ -223,42 +297,23 @@ export function ProductEditor({
             </label>
             {field("brand", "Merek (opsional)", { maxLength: 100 })}
           </div>
-          {product?.publishedAt && (
-            <label className="checkbox-label">
-              <input type="checkbox" name="confirmSlugChange" />
-              Saya memahami perubahan slug memutus URL lama; redirect otomatis
-              belum tersedia.
-            </label>
-          )}
           <label>
-            Deskripsi
+            Deskripsi produk (opsional)
             <textarea
               name="description"
-              required
               maxLength={10000}
-              rows={5}
+              rows={4}
+              placeholder="Tuliskan detail bahan, warna, atau keunikan pakaian jika diperlukan..."
               defaultValue={product?.description ?? ""}
-            />
-          </label>
-          <label>
-            Deskripsi singkat (opsional)
-            <textarea
-              name="shortDescription"
-              maxLength={500}
-              rows={2}
-              defaultValue={product?.shortDescription ?? ""}
             />
           </label>
         </fieldset>
         <fieldset disabled={!editable || busy}>
-          <legend>Harga & stok</legend>
+          <legend>Harga &amp; stok</legend>
           <div className="editor-grid">
             {field("price", "Harga (Rp)", { required: true, type: "number" })}
-            {field("compareAtPrice", "Harga pembanding (opsional, Rp)", {
-              type: "number",
-            })}
             <label>
-              Jumlah tersedia
+              Jumlah tersedia (stok)
               <input
                 name="quantity"
                 type="number"
@@ -269,16 +324,13 @@ export function ProductEditor({
                 defaultValue={product?.quantity ?? 1}
               />
             </label>
-            {field("weightGrams", "Berat (gram, opsional)", { type: "number" })}
           </div>
           <p className="small-note">
-            Gunakan angka rupiah utuh, contoh 100000. Harga pembanding hanya
-            diisi jika memiliki dasar yang benar.
+            Gunakan angka rupiah utuh tanpa titik atau koma, contoh: 125000.
           </p>
         </fieldset>
         <fieldset disabled={!editable || busy}>
-          <legend>Ukuran & pengukuran</legend>
-          {field("sizeLabel", "Label ukuran", { maxLength: 60 })}
+          <legend>Ukuran &amp; pengukuran</legend>
           <div className="measurement-editor">
             {measurements.map((m, i) => (
               <div className="measurement-row" key={m.rowId}>
@@ -287,7 +339,7 @@ export function ProductEditor({
                   <input
                     name={`${m.rowId}-label`}
                     defaultValue={m.label}
-                    placeholder="Lebar dada"
+                    placeholder="Lebar dada / Panjang baju"
                     required
                   />
                 </label>
@@ -345,31 +397,8 @@ export function ProductEditor({
               setDirty(true);
             }}
           >
-            Tambah pengukuran
+            + Tambah pengukuran
           </button>
-        </fieldset>
-        <fieldset disabled={!editable || busy}>
-          <legend>Kondisi & cacat</legend>
-          {field("conditionGrade", "Grade kondisi", { maxLength: 80 })}
-          <label>
-            Catatan kondisi
-            <textarea
-              name="conditionNotes"
-              rows={3}
-              required
-              maxLength={5000}
-              defaultValue={product?.conditionNotes ?? ""}
-            />
-          </label>
-          <label>
-            Catatan cacat (jika ada)
-            <textarea
-              name="defectNotes"
-              rows={3}
-              maxLength={5000}
-              defaultValue={product?.defectNotes ?? ""}
-            />
-          </label>
         </fieldset>
         <fieldset disabled={!editable || busy}>
           <legend>Harga promosi (internal)</legend>

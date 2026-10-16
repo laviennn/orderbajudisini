@@ -8,6 +8,7 @@ import {
   gte,
   ilike,
   inArray,
+  lt,
   lte,
   ne,
   or,
@@ -38,11 +39,13 @@ export const publicProductFields = {
   status: products.status,
 };
 const imageFields = {
+  id: productImages.id,
   objectKey: productImages.objectKey,
   altText: productImages.altText,
   width: productImages.width,
   height: productImages.height,
   bytes: productImages.bytes,
+  sortOrder: productImages.sortOrder,
   isDefectImage: productImages.isDefectImage,
   variants: sql<
     ImageVariant[] | null
@@ -50,12 +53,14 @@ const imageFields = {
 };
 type ImageVariant = { objectKey: string; width: number; bytes: number };
 type ImageRow = {
+  id?: string;
   variants?: ImageVariant[] | null;
   objectKey: string;
   altText: string;
   width: number;
   height: number;
   bytes: number;
+  sortOrder?: number;
   isDefectImage: boolean;
 };
 export function publicImage(row: ImageRow | null): PublicImage | null {
@@ -64,6 +69,7 @@ export function publicImage(row: ImageRow | null): PublicImage | null {
     return null;
   try {
     return {
+      id: row.id,
       url: getStorage().publicMediaUrl(row.objectKey),
       sources: [
         ...new Map(
@@ -79,12 +85,35 @@ export function publicImage(row: ImageRow | null): PublicImage | null {
       width: row.width,
       height: row.height,
       defect: row.isDefectImage,
+      sortOrder: row.sortOrder,
     };
   } catch {
     return null;
   }
 }
 export const primaryImage = sql<ImageRow | null>`(select json_build_object('objectKey', pi.object_key, 'altText', pi.alt_text, 'width', pi.width, 'height', pi.height, 'bytes', pi.bytes, 'isDefectImage', pi.is_defect_image, 'variants', (select json_agg(json_build_object('objectKey', v.object_key, 'width', v.width, 'bytes', v.bytes)) from product_images v where v.group_id = pi.group_id)) from product_images pi where pi.product_id = products.id and not pi.is_defect_image and pi.bytes <= 1500000 and pi.width <= 2000 and pi.height <= 2400 order by pi.sort_order, case pi.variant when 'card' then 0 when 'detail' then 1 else 2 end, pi.id limit 1)`;
+export const previewImagesQuery = sql<ImageRow[] | null>`(
+  select json_agg(json_build_object(
+    'objectKey', pi_inner.object_key,
+    'altText', pi_inner.alt_text,
+    'width', pi_inner.width,
+    'height', pi_inner.height,
+    'bytes', pi_inner.bytes,
+    'isDefectImage', pi_inner.is_defect_image,
+    'variants', (select json_agg(json_build_object('objectKey', v.object_key, 'width', v.width, 'bytes', v.bytes)) from product_images v where v.group_id = pi_inner.group_id)
+  ) order by pi_inner.sort_order, pi_inner.id)
+  from (
+    select distinct on (coalesce(sub.group_id, sub.id)) sub.*
+    from product_images sub
+    where sub.product_id = products.id
+      and not sub.is_defect_image
+      and sub.bytes <= 1500000
+      and sub.width <= 2000
+      and sub.height <= 2400
+    order by coalesce(sub.group_id, sub.id), case sub.variant when 'card' then 0 when 'detail' then 1 else 2 end, sub.sort_order, sub.id
+    limit 4
+  ) pi_inner
+)`;
 const publicCategory = eq(categories.active, true);
 const publicStates = inArray(products.status, ["active", "reserved", "sold"]);
 export async function listCatalog(input: CatalogFilter) {
@@ -117,7 +146,13 @@ export async function listCatalog(input: CatalogFilter) {
           ? desc(products.price)
           : sql`${products.publishedAt} desc nulls last`;
     const rows = await getDatabase()
-      .select({ ...publicProductFields, image: primaryImage })
+      .select({
+        ...publicProductFields,
+        categoryName: categories.name,
+        categorySlug: categories.slug,
+        image: primaryImage,
+        previewImages: previewImagesQuery,
+      })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .where(where)
@@ -125,9 +160,18 @@ export async function listCatalog(input: CatalogFilter) {
       .limit(pageSize + 1)
       .offset((f.page - 1) * pageSize);
     return {
-      items: rows
-        .slice(0, pageSize)
-        .map(({ image, ...p }) => ({ ...p, image: publicImage(image) })),
+      items: rows.slice(0, pageSize).map(({ image, previewImages, ...p }) => {
+        const primary = publicImage(image);
+        const previews = (previewImages ?? [])
+          .map((img) => publicImage(img))
+          .filter((img): img is PublicImage => img !== null);
+        return {
+          ...p,
+          image: primary,
+          previewImages:
+            previews.length > 0 ? previews : primary ? [primary] : [],
+        };
+      }),
       hasNext: rows.length > pageSize,
     };
   });
@@ -220,6 +264,7 @@ export async function getProduct(slug: string) {
         conditionGrade: products.conditionGrade,
         conditionNotes: products.conditionNotes,
         defectNotes: products.defectNotes,
+        weightGrams: products.weightGrams,
         seoTitle: products.seoTitle,
         seoDescription: products.seoDescription,
         categoryId: categories.id,
@@ -274,7 +319,13 @@ export async function getProduct(slug: string) {
 export async function relatedProducts(productId: string, categoryId: string) {
   return databaseOperation(async () => {
     const rows = await getDatabase()
-      .select({ ...publicProductFields, image: primaryImage })
+      .select({
+        ...publicProductFields,
+        categoryName: categories.name,
+        categorySlug: categories.slug,
+        image: primaryImage,
+        previewImages: previewImagesQuery,
+      })
       .from(products)
       .innerJoin(categories, eq(products.categoryId, categories.id))
       .where(
@@ -288,7 +339,18 @@ export async function relatedProducts(productId: string, categoryId: string) {
       )
       .orderBy(sql`${products.publishedAt} desc nulls last`, desc(products.id))
       .limit(4);
-    return rows.map(({ image, ...p }) => ({ ...p, image: publicImage(image) }));
+    return rows.map(({ image, previewImages, ...p }) => {
+      const primary = publicImage(image);
+      const previews = (previewImages ?? [])
+        .map((img) => publicImage(img))
+        .filter((img): img is PublicImage => img !== null);
+      return {
+        ...p,
+        image: primary,
+        previewImages:
+          previews.length > 0 ? previews : primary ? [primary] : [],
+      };
+    });
   });
 }
 export async function sitemapCount() {
@@ -326,4 +388,64 @@ export async function sitemapCategories(page: number) {
       .limit(1000)
       .offset(page * 1000),
   );
+}
+
+export async function getAdjacentProducts(
+  productId: string,
+  categoryId: string,
+) {
+  return databaseOperation(async () => {
+    const [current] = await getDatabase()
+      .select({ id: products.id, publishedAt: products.publishedAt })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1);
+
+    if (!current) return { prev: null, next: null };
+
+    const publishedDate = current.publishedAt ?? new Date(0);
+
+    const [prevRow] = await getDatabase()
+      .select({ slug: products.slug, name: products.name })
+      .from(products)
+      .where(
+        and(
+          eq(products.categoryId, categoryId),
+          publicStates,
+          or(
+            gt(products.publishedAt, publishedDate),
+            and(
+              eq(products.publishedAt, publishedDate),
+              gt(products.id, current.id),
+            ),
+          ),
+        ),
+      )
+      .orderBy(asc(products.publishedAt), asc(products.id))
+      .limit(1);
+
+    const [nextRow] = await getDatabase()
+      .select({ slug: products.slug, name: products.name })
+      .from(products)
+      .where(
+        and(
+          eq(products.categoryId, categoryId),
+          publicStates,
+          or(
+            lt(products.publishedAt, publishedDate),
+            and(
+              eq(products.publishedAt, publishedDate),
+              lt(products.id, current.id),
+            ),
+          ),
+        ),
+      )
+      .orderBy(desc(products.publishedAt), desc(products.id))
+      .limit(1);
+
+    return {
+      prev: prevRow ?? null,
+      next: nextRow ?? null,
+    };
+  });
 }

@@ -82,6 +82,8 @@ export function useCart() {
     ready,
     persistent: persistence,
     add: (id: string) => setCart([...ids, id]),
+    addMultiple: (newIds: readonly string[]) =>
+      setCart([...new Set([...ids, ...newIds])]),
     remove: (id: string) => setCart(ids.filter((p) => p !== id)),
     clear: () => setCart([]),
     removeOrdered: (ordered: readonly string[]) =>
