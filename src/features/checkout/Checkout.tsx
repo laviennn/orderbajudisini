@@ -12,7 +12,6 @@ import type {
 } from "@/server/services/checkout";
 import { ShippingIcon, BankIcon, AlertCircleIcon } from "./Icons";
 import { CopyButton } from "./CopyButton";
-import { DownloadQrisButton } from "./DownloadQrisButton";
 
 type CheckoutState =
   | { status: "editing" }
@@ -653,49 +652,6 @@ export function Checkout() {
                         >
                           {payment.merchantName}
                         </p>
-                      )}
-
-                      {payment.type === "qris" && isSelected && payment.qrisImageUrl && (
-                        <div
-                          style={{
-                            marginTop: "0.875rem",
-                            padding: "0.875rem",
-                            backgroundColor: "#fafaf9",
-                            borderRadius: "8px",
-                            border: "1px solid var(--border, #d4d5cc)",
-                            textAlign: "center",
-                          }}
-                        >
-                          <div
-                            style={{
-                              padding: "0.5rem",
-                              backgroundColor: "#ffffff",
-                              borderRadius: "6px",
-                              border: "1px solid var(--border, #d4d5cc)",
-                              display: "inline-block",
-                              marginBottom: "0.75rem",
-                            }}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={payment.qrisImageUrl}
-                              alt="Kode QRIS"
-                              style={{
-                                maxWidth: "200px",
-                                maxHeight: "200px",
-                                objectFit: "contain",
-                                display: "block",
-                                margin: "0 auto",
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <DownloadQrisButton
-                              imageUrl={payment.qrisImageUrl}
-                              merchantName={payment.merchantName}
-                            />
-                          </div>
-                        </div>
                       )}
 
                       {payment.type === "bank_transfer" &&
