@@ -166,11 +166,68 @@ export function resolveShippingProvider(): ShippingProvider {
 export async function createShippingQuotes(
   input: unknown,
   provider: ShippingProvider = resolveShippingProvider(),
+  existingTx?: Transaction,
 ) {
-  return databaseOperation(async () => {
-    const data = inputSchema.parse(input);
-    const db = getDatabase();
+  const data = inputSchema.parse(input);
+  const db = getDatabase();
 
+  const runFlatQuote = async (tx: Transaction) => {
+    const current = await loadContext(tx, data);
+    const totalItems = data.items.reduce((sum, i) => sum + i.quantity, 0);
+    const isSingle = totalItems === 1;
+    const rates = [
+      {
+        provider: "flat",
+        courierCode: isSingle ? "REGULER" : "BEBAS_ONGKIR",
+        courierName: isSingle ? "Ekspedisi Reguler" : "Pengiriman Toko",
+        serviceCode: isSingle ? "STANDAR" : "GRATIS",
+        serviceName: isSingle
+          ? "Pengiriman Standar (Flat Rp30.000)"
+          : "Gratis Ongkir",
+        cost: isSingle ? 30000 : 0,
+        estimate: "2–4 hari",
+      },
+    ];
+    const expiresAt = new Date(Date.now() + 5 * 60_000);
+    const saved = await tx
+      .insert(shippingQuotes)
+      .values(
+        rates.map((rate) => ({
+          customerId: data.customerId,
+          addressId: data.addressId,
+          cartFingerprint: current.cartFingerprint,
+          contextFingerprint: current.contextFingerprint,
+          testOnly: provider.testOnly,
+          provider: rate.provider,
+          courier: rate.courierCode,
+          courierName: rate.courierName,
+          service: rate.serviceCode,
+          serviceName: rate.serviceName,
+          cost: rate.cost,
+          etd: rate.estimate,
+          expiresAt,
+        })),
+      )
+      .returning();
+    return saved.map((q) => ({
+      quoteId: q.id,
+      provider: q.provider,
+      courierCode: q.courier,
+      courierName: q.courierName!,
+      serviceCode: q.service,
+      serviceName: q.serviceName!,
+      cost: q.cost,
+      estimate: q.etd,
+      expiresAt: q.expiresAt,
+      testOnly: provider.testOnly,
+    }));
+  };
+
+  if (existingTx && provider.id !== "test") {
+    return runFlatQuote(existingTx);
+  }
+
+  return databaseOperation(async () => {
     // Isolated test providers execute network quoting outside transaction locks
     if (provider.id === "test") {
       const context = await db.transaction((tx) => loadContext(tx, data));
@@ -219,56 +276,6 @@ export async function createShippingQuotes(
     }
 
     // High performance flat shipping path: 1 transaction with parallel queries
-    return db.transaction(async (tx) => {
-      const current = await loadContext(tx, data);
-      const totalItems = data.items.reduce((sum, i) => sum + i.quantity, 0);
-      const isSingle = totalItems === 1;
-      const rates = [
-        {
-          provider: "flat",
-          courierCode: isSingle ? "REGULER" : "BEBAS_ONGKIR",
-          courierName: isSingle ? "Ekspedisi Reguler" : "Pengiriman Toko",
-          serviceCode: isSingle ? "STANDAR" : "GRATIS",
-          serviceName: isSingle
-            ? "Pengiriman Standar (Flat Rp30.000)"
-            : "Gratis Ongkir",
-          cost: isSingle ? 30000 : 0,
-          estimate: "2–4 hari",
-        },
-      ];
-      const expiresAt = new Date(Date.now() + 5 * 60_000);
-      const saved = await tx
-        .insert(shippingQuotes)
-        .values(
-          rates.map((rate) => ({
-            customerId: data.customerId,
-            addressId: data.addressId,
-            cartFingerprint: current.cartFingerprint,
-            contextFingerprint: current.contextFingerprint,
-            testOnly: provider.testOnly,
-            provider: rate.provider,
-            courier: rate.courierCode,
-            courierName: rate.courierName,
-            service: rate.serviceCode,
-            serviceName: rate.serviceName,
-            cost: rate.cost,
-            etd: rate.estimate,
-            expiresAt,
-          })),
-        )
-        .returning();
-      return saved.map((q) => ({
-        quoteId: q.id,
-        provider: q.provider,
-        courierCode: q.courier,
-        courierName: q.courierName!,
-        serviceCode: q.service,
-        serviceName: q.serviceName!,
-        cost: q.cost,
-        estimate: q.etd,
-        expiresAt: q.expiresAt,
-        testOnly: provider.testOnly,
-      }));
-    });
+    return db.transaction(runFlatQuote);
   });
 }

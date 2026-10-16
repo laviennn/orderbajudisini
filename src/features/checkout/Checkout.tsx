@@ -533,29 +533,13 @@ export function Checkout() {
             </div>
 
             <h2 style={{ marginTop: "2rem" }}>Pilih Metode Pembayaran</h2>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-            >
+            <div className="payment-methods-list">
               {state.preview.payments?.map((payment: PaymentMethodChoice) => {
                 const isSelected = paymentMethodId === payment.id;
                 return (
                   <label
                     key={payment.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "1rem",
-                      border: isSelected
-                        ? "1.5px solid var(--foreground)"
-                        : "1px solid var(--border)",
-                      padding: "1rem 1.25rem",
-                      borderRadius: "var(--radius-control)",
-                      backgroundColor: isSelected
-                        ? "var(--surface-subtle)"
-                        : "var(--surface)",
-                      cursor: "pointer",
-                      transition: "all 0.2s ease",
-                    }}
+                    className={`payment-method-card ${isSelected ? "is-selected" : ""}`}
                   >
                     <input
                       type="radio"
@@ -564,29 +548,11 @@ export function Checkout() {
                       checked={isSelected}
                       onChange={() => setPaymentMethodId(payment.id)}
                       disabled={state.status === "submitting"}
-                      style={{
-                        width: "auto",
-                        minHeight: "auto",
-                        marginTop: "6px",
-                      }}
+                      className="payment-method-radio"
                     />
 
                     {/* Logo or Method Icon */}
-                    <div
-                      style={{
-                        width: "68px",
-                        height: "44px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--border)",
-                        backgroundColor: "#ffffff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        padding: "4px",
-                        flexShrink: 0,
-                      }}
-                    >
+                    <div className="payment-method-logo">
                       {payment.type === "qris" ? (
                         <Image
                           unoptimized
@@ -621,7 +587,7 @@ export function Checkout() {
                       )}
                     </div>
 
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="payment-method-details">
                       <div
                         style={{
                           display: "flex",
@@ -656,15 +622,7 @@ export function Checkout() {
 
                       {payment.type === "bank_transfer" &&
                         payment.accountNumber && (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.625rem",
-                              marginTop: "0.375rem",
-                              flexWrap: "wrap",
-                            }}
-                          >
+                          <div className="payment-account-row">
                             <span
                               style={{
                                 fontFamily: "var(--font-mono, monospace)",

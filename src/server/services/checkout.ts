@@ -183,7 +183,8 @@ export async function prepareCheckout(input: unknown) {
 
     if (availablePayments.length === 0) throw new AppError("NOT_CONFIGURED");
 
-    const context = await db.transaction(async (tx) => {
+    const items = data.ids.map((productId) => ({ productId, quantity: 1 }));
+    const [context, quotes] = await db.transaction(async (tx) => {
       const [customer] = await tx
         .insert(customers)
         .values({
@@ -205,10 +206,10 @@ export async function prepareCheckout(input: unknown) {
         .insert(addresses)
         .values({ ...address, customerId: customer!.id })
         .returning();
-      return { customerId: customer!.id, addressId: saved!.id };
+      const ctx = { customerId: customer!.id, addressId: saved!.id };
+      const q = await createShippingQuotes({ ...ctx, items }, provider, tx);
+      return [ctx, q] as const;
     });
-    const items = data.ids.map((productId) => ({ productId, quantity: 1 }));
-    const quotes = await createShippingQuotes({ ...context, items }, provider);
     const idempotencyKey = randomUUID();
     return {
       cart,

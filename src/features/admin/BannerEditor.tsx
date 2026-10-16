@@ -849,25 +849,6 @@ export function BannerEditor({
                   </div>
                 )}
               </div>
-
-              {/* Instagram Bar Simulation */}
-              <div
-                style={{
-                  background: "#0c0f0d",
-                  padding: "0.4rem 0.75rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  fontSize: "0.6875rem",
-                  color: "#9ca3af",
-                  borderTop: "1px solid #273329",
-                }}
-              >
-                <span>📷 Ikuti Instagram Kami</span>
-                <span style={{ color: "#34d399", fontWeight: 500 }}>
-                  @orderbajudisini
-                </span>
-              </div>
             </div>
           </div>
 

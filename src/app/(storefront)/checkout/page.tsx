@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function CheckoutPage() {
   return (
-    <main className="section-space">
+    <main className="section-space checkout-page">
       <Checkout />
     </main>
   );

@@ -27,21 +27,22 @@ export function Drawer({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const handleClose = useCallback(() => {
     setIsAnimating(false);
-    const timer = setTimeout(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
       const dialog = dialogRef.current;
       if (dialog && dialog.open) {
         dialog.close();
       }
       document.body.style.overflow = "";
       setIsOpen(false);
-      triggerRef.current?.focus();
-    }, 320);
-    return () => clearTimeout(timer);
+      triggerRef.current?.focus({ preventScroll: true });
+    }, 280);
   }, []);
 
   const handleOpen = useCallback(() => {
@@ -52,15 +53,20 @@ export function Drawer({
     const dialog = dialogRef.current;
     if (!dialog) return;
 
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
     if (!dialog.open) {
       dialog.showModal();
     }
+    // Focus dialog itself with preventScroll so browser doesn't scroll offscreen to children
+    dialog.focus({ preventScroll: true });
     document.body.style.overflow = "hidden";
     setIsOpen(true);
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setIsAnimating(true);
-      });
+      setIsAnimating(true);
     });
   }, [isOpen, handleClose]);
 
@@ -72,6 +78,7 @@ export function Drawer({
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
       document.body.style.overflow = "";
     };
   }, [handleClose]);
@@ -132,8 +139,10 @@ export function Drawer({
       </button>
       <dialog
         ref={dialogRef}
+        tabIndex={-1}
         aria-label={title}
         className={`drawer drawer-modal ${isAnimating ? "is-visible" : ""}`}
+        style={{ outline: "none" }}
         onCancel={(e) => {
           e.preventDefault();
           handleClose();

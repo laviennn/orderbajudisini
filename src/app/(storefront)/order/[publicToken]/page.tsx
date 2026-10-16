@@ -57,10 +57,10 @@ export default async function OrderConfirmationPage({
 
   return (
     <main
-      className="section-space page-width"
+      className="section-space page-width order-page"
       style={{
         paddingTop: "2rem",
-        paddingBottom: "5rem",
+        paddingBottom: "6rem",
         maxWidth: "880px",
         margin: "0 auto",
       }}
@@ -207,24 +207,39 @@ export default async function OrderConfirmationPage({
           {isCancelled && "Pesanan ini telah dibatalkan."}
         </p>
 
-        {/* Order Meta Bar */}
+        {/* Order Meta Bar - Responsive Card instead of deformed 9999px pill */}
         <div
+          className="order-meta-card"
           style={{
             display: "inline-flex",
             alignItems: "center",
-            flexWrap: "wrap",
             justifyContent: "center",
-            gap: "0.75rem",
+            flexWrap: "wrap",
+            gap: "0.625rem 1rem",
             padding: "0.625rem 1.25rem",
             background: "#ffffff",
             border: "1px solid var(--border, #d4d5cc)",
-            borderRadius: "9999px",
+            borderRadius: "10px",
             fontSize: "0.875rem",
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04)",
+            boxShadow: "0 1px 4px rgba(0, 0, 0, 0.04)",
+            maxWidth: "100%",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span style={{ color: "var(--muted-foreground, #62675c)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
+            <span
+              style={{
+                color: "var(--muted-foreground, #62675c)",
+                fontSize: "0.8125rem",
+              }}
+            >
               No. Pesanan:
             </span>
             <span
@@ -232,6 +247,7 @@ export default async function OrderConfirmationPage({
                 fontFamily: "var(--font-mono, monospace)",
                 fontWeight: 700,
                 color: "var(--foreground, #242922)",
+                wordBreak: "break-all",
               }}
             >
               {order.orderNumber}
@@ -243,17 +259,18 @@ export default async function OrderConfirmationPage({
             />
           </div>
           {order.createdAt && (
-            <>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "var(--muted-foreground, #62675c)",
+                fontSize: "0.8125rem",
+              }}
+            >
               <span style={{ color: "var(--border, #d4d5cc)" }}>&bull;</span>
-              <span
-                style={{
-                  color: "var(--muted-foreground, #62675c)",
-                  fontSize: "0.8125rem",
-                }}
-              >
-                {formatOrderDate(order.createdAt)}
-              </span>
-            </>
+              <span>{formatOrderDate(order.createdAt)}</span>
+            </div>
           )}
         </div>
       </section>
@@ -565,6 +582,7 @@ export default async function OrderConfirmationPage({
                       imageUrl={order.qris.imageUrl}
                       merchantName={order.qris.merchantName}
                       orderNumber={order.orderNumber}
+                      publicToken={publicToken}
                     />
                     <p
                       style={{
@@ -613,51 +631,25 @@ export default async function OrderConfirmationPage({
           {isPendingPayment && (
             <div style={{ marginTop: "1.75rem" }}>
               <PaymentProofUpload publicToken={publicToken} />
-              <WhatsAppConfirmation publicToken={publicToken} />
+              <WhatsAppConfirmation
+                publicToken={publicToken}
+                orderNumber={order.orderNumber}
+              />
             </div>
           )}
 
           {isPaymentSubmitted && (
             <div style={{ marginTop: "1.75rem" }}>
-              {/* Submitted Notice Banner */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "0.75rem",
-                  padding: "1rem 1.25rem",
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: "8px",
-                  fontSize: "0.875rem",
-                  color: "#166534",
-                }}
-              >
-                <CheckIcon
-                  size={20}
-                  style={{ color: "#16a34a", marginTop: "2px" }}
-                />
-                <div>
-                  <strong
-                    style={{
-                      display: "block",
-                      marginBottom: "0.25rem",
-                      fontSize: "0.95rem",
-                    }}
-                  >
-                    Bukti Pembayaran Telah Kami Terima
-                  </strong>
-                  Bukti transfer Anda saat ini sedang dalam antrean verifikasi
-                  oleh tim admin kami. Anda juga dapat konfirmasi langsung ke
-                  WhatsApp untuk proses yang lebih cepat.
-                </div>
-              </div>
-
-              <WhatsAppConfirmation publicToken={publicToken} />
+              {/* Mandatory WhatsApp Confirmation Action Card */}
+              <WhatsAppConfirmation
+                publicToken={publicToken}
+                isMandatory={true}
+                orderNumber={order.orderNumber}
+              />
 
               <details
                 style={{
-                  marginTop: "1rem",
+                  marginTop: "1.25rem",
                   padding: "0.75rem 1rem",
                   backgroundColor: "#fafaf9",
                   border: "1px solid var(--border, #d4d5cc)",
@@ -667,14 +659,14 @@ export default async function OrderConfirmationPage({
                 <summary
                   style={{
                     cursor: "pointer",
-                    fontSize: "0.875rem",
+                    fontSize: "0.85rem",
                     fontWeight: 600,
                     color: "var(--foreground, #242922)",
                   }}
                 >
                   Ingin mengunggah ulang bukti pembayaran? (Klik di sini)
                 </summary>
-                <div style={{ marginTop: "0.5rem" }}>
+                <div style={{ marginTop: "0.75rem" }}>
                   <PaymentProofUpload publicToken={publicToken} />
                 </div>
               </details>
