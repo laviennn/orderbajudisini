@@ -62,7 +62,7 @@ describe("R2 boundary", () => {
       expect(result.key.startsWith(`${purpose}/`)).toBe(true);
     }
   });
-  it("only signs private proof downloads, with no-store and attachment disposition", async () => {
+  it("only signs private proof downloads, with no-store and inline disposition", async () => {
     const storage = getStorage();
     await expect(
       storage.privateProofUrl(`product/${id}.jpg`),
@@ -76,7 +76,7 @@ describe("R2 boundary", () => {
       "private, no-store",
     );
     expect(url.searchParams.get("response-content-disposition")).toBe(
-      "attachment",
+      "inline",
     );
   });
 });

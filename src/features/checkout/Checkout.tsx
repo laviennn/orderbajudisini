@@ -12,6 +12,7 @@ import type {
 } from "@/server/services/checkout";
 import { ShippingIcon, BankIcon, AlertCircleIcon } from "./Icons";
 import { CopyButton } from "./CopyButton";
+import { DownloadQrisButton } from "./DownloadQrisButton";
 
 type CheckoutState =
   | { status: "editing" }
@@ -120,6 +121,7 @@ export function Checkout() {
 
   const [state, setState] = useState<CheckoutState>({ status: "editing" });
   const [error, setError] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const trackedRef = useRef(false);
 
   useEffect(() => {
@@ -143,8 +145,58 @@ export function Checkout() {
     }
   }, [error, state.status]);
 
+  if (isSubmitted) {
+    return (
+      <div
+        className="section-space page-width"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "360px",
+          textAlign: "center",
+          padding: "3rem 1rem",
+        }}
+      >
+        <div
+          className="animate-spin"
+          style={{
+            width: "44px",
+            height: "44px",
+            border: "3px solid var(--border, #d4d5cc)",
+            borderTopColor: "var(--primary, #354a37)",
+            borderRadius: "50%",
+            marginBottom: "1.25rem",
+          }}
+        />
+        <h2
+          style={{
+            fontFamily: "var(--font-display, Georgia, serif)",
+            fontSize: "1.5rem",
+            color: "var(--foreground, #242922)",
+            margin: "0 0 0.5rem",
+          }}
+        >
+          Pesanan Berhasil Dibuat
+        </h2>
+        <p
+          style={{
+            color: "var(--muted-foreground, #62675c)",
+            fontSize: "0.95rem",
+            maxWidth: "420px",
+            margin: 0,
+            lineHeight: 1.5,
+          }}
+        >
+          Sedang menyiapkan rincian pembayaran untuk pesanan Anda…
+        </p>
+      </div>
+    );
+  }
+
   if (!cart.ready) return <p role="status">Memuat keranjang…</p>;
-  if (!cart.ids.length) {
+  if (!cart.ids.length && !isSubmitted) {
     return (
       <div className="empty-state page-width">
         <h2>Keranjang kosong.</h2>
@@ -246,10 +298,12 @@ export function Checkout() {
       }
 
       const result = await res.json();
+      setIsSubmitted(true);
       cart.removeOrdered(cart.ids);
       trackCommerce("order_created", cart.ids);
       router.push(`/order/${result.publicToken}`);
     } catch (err) {
+      setIsSubmitted(false);
       setError(err instanceof Error ? err.message : "Gagal");
       setState({ ...state, status: "quotes_ready" });
     }
@@ -599,6 +653,49 @@ export function Checkout() {
                         >
                           {payment.merchantName}
                         </p>
+                      )}
+
+                      {payment.type === "qris" && isSelected && payment.qrisImageUrl && (
+                        <div
+                          style={{
+                            marginTop: "0.875rem",
+                            padding: "0.875rem",
+                            backgroundColor: "#fafaf9",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border, #d4d5cc)",
+                            textAlign: "center",
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: "0.5rem",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "6px",
+                              border: "1px solid var(--border, #d4d5cc)",
+                              display: "inline-block",
+                              marginBottom: "0.75rem",
+                            }}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={payment.qrisImageUrl}
+                              alt="Kode QRIS"
+                              style={{
+                                maxWidth: "200px",
+                                maxHeight: "200px",
+                                objectFit: "contain",
+                                display: "block",
+                                margin: "0 auto",
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <DownloadQrisButton
+                              imageUrl={payment.qrisImageUrl}
+                              merchantName={payment.merchantName}
+                            />
+                          </div>
+                        </div>
                       )}
 
                       {payment.type === "bank_transfer" &&

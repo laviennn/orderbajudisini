@@ -14,6 +14,7 @@ import {
   ShieldCheckIcon,
 } from "@/features/checkout/Icons";
 import { CopyButton } from "@/features/checkout/CopyButton";
+import { DownloadQrisButton } from "@/features/checkout/DownloadQrisButton";
 
 export const metadata: Metadata = {
   title: "Status Pesanan - Thrift Commerce",
@@ -555,6 +556,27 @@ export default async function OrderConfirmationPage({
                         display: "block",
                       }}
                     />
+                  </div>
+                )}
+
+                {order.qris.imageUrl && (
+                  <div style={{ marginTop: "1rem" }}>
+                    <DownloadQrisButton
+                      imageUrl={order.qris.imageUrl}
+                      merchantName={order.qris.merchantName}
+                      orderNumber={order.orderNumber}
+                    />
+                    <p
+                      style={{
+                        margin: "0.625rem auto 0",
+                        maxWidth: "380px",
+                        fontSize: "0.8125rem",
+                        color: "var(--muted-foreground, #62675c)",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      💡 <em>Tips:</em> Simpan gambar QRIS ke galeri HP, lalu buka aplikasi m-Banking atau e-Wallet dan pilih <strong>Scan dari Galeri</strong>.
+                    </p>
                   </div>
                 )}
                 <div

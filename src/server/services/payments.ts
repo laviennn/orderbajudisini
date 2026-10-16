@@ -423,14 +423,15 @@ export async function completeProofUpload(publicToken: string, input: unknown) {
 }
 
 export async function resolveProofUrl(proofToken: string) {
-  if (!/^[a-f0-9]{64}$/.test(proofToken))
+  const sanitized = proofToken?.trim().toLowerCase();
+  if (!sanitized || !/^[a-f0-9]{64}$/.test(sanitized))
     throw new AppError("VALIDATION_ERROR");
   return databaseOperation(async () => {
     const db = getDatabase();
     const [payment] = await db
       .select({ proofObjectKey: payments.proofObjectKey })
       .from(payments)
-      .where(eq(payments.proofTokenHash, hashToken(proofToken)))
+      .where(eq(payments.proofTokenHash, hashToken(sanitized)))
       .limit(1);
 
     if (!payment || !payment.proofObjectKey) throw new AppError("NOT_FOUND");
@@ -440,3 +441,33 @@ export async function resolveProofUrl(proofToken: string) {
     return result;
   });
 }
+
+export async function resolveProofFile(proofToken: string) {
+  const sanitized = proofToken?.trim().toLowerCase();
+  if (!sanitized || !/^[a-f0-9]{64}$/.test(sanitized))
+    throw new AppError("VALIDATION_ERROR");
+  return databaseOperation(async () => {
+    const db = getDatabase();
+    const [payment] = await db
+      .select({
+        proofObjectKey: payments.proofObjectKey,
+        proofMime: payments.proofMime,
+      })
+      .from(payments)
+      .where(eq(payments.proofTokenHash, hashToken(sanitized)))
+      .limit(1);
+
+    if (!payment || !payment.proofObjectKey) throw new AppError("NOT_FOUND");
+
+    const storage = getStorage();
+    const buffer = await storage.readPaymentProof(
+      payment.proofObjectKey,
+      12 * 1024 * 1024,
+    );
+    return {
+      buffer,
+      mime: payment.proofMime || "image/jpeg",
+    };
+  });
+}
+

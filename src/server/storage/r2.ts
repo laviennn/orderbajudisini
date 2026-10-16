@@ -236,7 +236,7 @@ export function getStorage(): StorageAdapter {
             Bucket: privateBucket,
             Key: key,
             ResponseCacheControl: "private, no-store",
-            ResponseContentDisposition: "attachment",
+            ResponseContentDisposition: "inline",
           }),
           { expiresIn: signedLifetimeSeconds },
         ),

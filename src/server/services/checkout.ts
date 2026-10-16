@@ -89,6 +89,7 @@ export type PaymentMethodChoice = {
   merchantName?: string | null;
   instructions?: string | null;
   logoUrl?: string | null;
+  qrisImageUrl?: string | null;
 };
 function key() {
   const secret = getEnvironment().AUTH_SECRET;
@@ -129,23 +130,34 @@ export function open(value: string): Ticket {
 export async function prepareCheckout(input: unknown) {
   return databaseOperation(async () => {
     const data = prepareInput.parse(input);
-    const cart = await validateCart({ ids: data.ids });
-    if (!cart.pricing || cart.items.some((i) => !i.available))
-      return { cart, choices: [], payments: [] as PaymentMethodChoice[] };
-    const provider = resolveShippingProvider();
     const db = getDatabase();
 
-    // Fetch available payment methods
-    const [qris, banks] = await Promise.all([
-      db.select().from(qrisSettings).where(eq(qrisSettings.id, 1)).limit(1),
-      db
-        .select()
-        .from(bankAccounts)
-        .where(eq(bankAccounts.active, true))
-        .orderBy(asc(bankAccounts.sortOrder), asc(bankAccounts.id)),
+    // Fetch cart validation and payment methods concurrently
+    const [cart, [qris, banks]] = await Promise.all([
+      validateCart({ ids: data.ids }),
+      Promise.all([
+        db.select().from(qrisSettings).where(eq(qrisSettings.id, 1)).limit(1),
+        db
+          .select()
+          .from(bankAccounts)
+          .where(eq(bankAccounts.active, true))
+          .orderBy(asc(bankAccounts.sortOrder), asc(bankAccounts.id)),
+      ]),
     ]);
+
+    if (!cart.pricing || cart.items.some((i) => !i.available))
+      return { cart, choices: [], payments: [] as PaymentMethodChoice[] };
+
+    const provider = resolveShippingProvider();
+
     const availablePayments: PaymentMethodChoice[] = [];
     if (qris[0]?.active && qris[0]?.imageObjectKey) {
+      let qrisImageUrl: string | null = null;
+      try {
+        qrisImageUrl = getStorage().publicMediaUrl(qris[0].imageObjectKey);
+      } catch {
+        qrisImageUrl = null;
+      }
       availablePayments.push({
         id: "qris",
         name: "QRIS",
@@ -153,6 +165,7 @@ export async function prepareCheckout(input: unknown) {
         merchantName: qris[0]?.merchantName ?? null,
         instructions: qris[0]?.instructions ?? null,
         logoUrl: "/images/qris.webp",
+        qrisImageUrl,
       });
     }
     banks.forEach((b) => {
