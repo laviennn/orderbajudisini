@@ -202,7 +202,7 @@ export function Drawer({
             <p className="drawer-footer-text">
               Toko Fashion Muslimah Berbasis Online
             </p>
-            <p className="drawer-footer-sub">© OrderBajuDisini. The Label</p>
+            <p className="drawer-footer-sub">© OrderBajuDisini</p>
           </div>
         </div>
       </dialog>
@@ -315,7 +315,7 @@ export function AddToCart({
   // Total items from this set currently in the cart
   const setInCartCount = selection
     ? selection.images.filter((img) => img.id && cart.ids.includes(img.id))
-        .length
+      .length
     : exists
       ? 1
       : 0;
@@ -323,8 +323,8 @@ export function AddToCart({
   // Remaining available images in set that are not yet in cart
   const remainingImages = selection
     ? selection.images.filter(
-        (img) => !img.defect && img.id && !cart.ids.includes(img.id),
-      )
+      (img) => !img.defect && img.id && !cart.ids.includes(img.id),
+    )
     : [];
 
   const handleAddCurrent = () => {

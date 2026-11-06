@@ -56,7 +56,7 @@ export default async function StorefrontLayout({
                 </span>
                 <span className="brand-name-group">
                   <span className="brand-title">{store.name}</span>
-                  <span className="brand-tagline">THE LABEL</span>
+
                 </span>
               </span>
             )}
